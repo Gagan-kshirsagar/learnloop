@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "bundle-budget": "node tools/check_bundle_budget.mjs",
+    "lhci": "lhci autorun",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
