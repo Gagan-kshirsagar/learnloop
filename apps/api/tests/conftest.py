@@ -39,15 +39,18 @@ async def test_engine() -> AsyncIterator[AsyncEngine]:
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("ALTER TABLE users ENABLE ROW LEVEL SECURITY;"))
-        await conn.execute(text("ALTER TABLE users FORCE ROW LEVEL SECURITY;"))
-        await conn.execute(text("DROP POLICY IF EXISTS tenant_isolation ON users;"))
-        await conn.execute(
-            text(
-                "CREATE POLICY tenant_isolation ON users "
-                "USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);"
+
+        for table in ["users", "courses", "modules", "lessons"]:
+            await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;"))
+            await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;"))
+            await conn.execute(text(f"DROP POLICY IF EXISTS tenant_isolation ON {table};"))
+            await conn.execute(
+                text(
+                    f"CREATE POLICY tenant_isolation ON {table} "
+                    "USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);"
+                )
             )
-        )
+
         await conn.execute(
             text(
                 "DO $$ BEGIN "
@@ -61,6 +64,9 @@ async def test_engine() -> AsyncIterator[AsyncEngine]:
         await conn.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO learnloop_app;"))
     yield engine
     async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM lessons;"))
+        await conn.execute(text("DELETE FROM modules;"))
+        await conn.execute(text("DELETE FROM courses;"))
         await conn.execute(text("DELETE FROM users;"))
         await conn.execute(text("DELETE FROM tenants;"))
     await engine.dispose()
@@ -76,8 +82,10 @@ async def db_session(test_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     )
     async with factory() as session:
         yield session
-        # Clean up database records after each test
         async with test_engine.begin() as conn:
+            await conn.execute(text("DELETE FROM lessons;"))
+            await conn.execute(text("DELETE FROM modules;"))
+            await conn.execute(text("DELETE FROM courses;"))
             await conn.execute(text("DELETE FROM users;"))
             await conn.execute(text("DELETE FROM tenants;"))
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { Bot, LogOut, Sparkles, User as UserIcon } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { BookOpen, GraduationCap, LayoutDashboard, LogOut, Sparkles, User as UserIcon } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,12 @@ import { useAuthStore } from "@/stores/authStore";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const tenant = useAuthStore((state) => state.tenant);
   const logoutMutation = useLogoutMutation();
 
-  // Trigger MeQuery to ensure latest server state
   useMeQuery();
 
   useEffect(() => {
@@ -35,7 +36,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     });
   };
 
-  // While checking bootstrap / restoring tokens, show a sized skeleton to prevent flash
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-background p-6 space-y-6">
@@ -60,42 +60,85 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return null;
   }
 
-  const isGuest = status === "guest" || user?.role === "student" && user?.email.includes("@guest");
+  const isGuest = status === "guest" || (user?.role === "student" && user?.email.includes("@guest"));
+  const canTeach = user?.role === "owner" || user?.role === "instructor";
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-subtle/70 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Bot className="h-4 w-4" />
-            </div>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Link href="/app" className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+                LL
+              </div>
+              <span className="font-bold text-sm tracking-tight hidden sm:inline">LearnLoop</span>
+            </Link>
+
+            {/* Breadcrumb Tenant Badge */}
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight">LearnLoop</span>
-              <span className="text-muted-foreground text-xs">/</span>
-              <span className="text-xs font-semibold text-foreground truncate max-w-[150px] sm:max-w-[200px]">
+              <span className="text-muted text-xs hidden sm:inline">/</span>
+              <span className="text-xs font-semibold text-foreground truncate max-w-[120px] sm:max-w-[180px]">
                 {tenant?.name || "Workspace"}
               </span>
+              {isGuest ? (
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-[10px] gap-1 px-1.5 py-0">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Sandbox
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0">
+                  {tenant?.plan || "Free"}
+                </Badge>
+              )}
             </div>
 
-            {isGuest ? (
-              <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-[11px] gap-1">
-                <Sparkles className="h-3 w-3" />
-                Demo Sandbox
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-[11px] font-medium uppercase tracking-wider">
-                {tenant?.plan || "Free"}
-              </Badge>
-            )}
+            {/* Nav Links */}
+            <nav className="flex items-center gap-1 text-xs font-medium">
+              <Link
+                href="/app"
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                  pathname === "/app"
+                    ? "bg-surface-2 text-foreground font-semibold"
+                    : "text-muted hover:text-foreground hover:bg-surface-2/60"
+                }`}
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Dashboard</span>
+              </Link>
+              <Link
+                href="/app/courses"
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                  pathname.startsWith("/app/courses") || pathname.startsWith("/app/lessons")
+                    ? "bg-surface-2 text-foreground font-semibold"
+                    : "text-muted hover:text-foreground hover:bg-surface-2/60"
+                }`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Courses</span>
+              </Link>
+              {canTeach && (
+                <Link
+                  href="/app/teach"
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                    pathname.startsWith("/app/teach")
+                      ? "bg-surface-2 text-foreground font-semibold"
+                      : "text-muted hover:text-foreground hover:bg-surface-2/60"
+                  }`}
+                >
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  <span>Teach</span>
+                </Link>
+              )}
+            </nav>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-md border border-border/40">
-              <UserIcon className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted bg-surface-2/60 px-2.5 py-1 rounded-md border border-subtle">
+              <UserIcon className="h-3 w-3" />
               <span className="font-medium text-foreground">{user?.name}</span>
-              <span className="text-muted-foreground">({user?.role})</span>
+              <span className="text-faint">({user?.role})</span>
             </div>
 
             <ThemeToggle />
@@ -103,11 +146,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted-foreground hover:text-foreground h-8 px-2.5"
+              className="text-muted hover:text-foreground h-8 px-2"
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
             >
-              <LogOut className="h-4 w-4 sm:mr-1.5" />
+              <LogOut className="h-3.5 w-3.5 sm:mr-1.5" />
               <span className="hidden sm:inline text-xs">Sign out</span>
             </Button>
           </div>

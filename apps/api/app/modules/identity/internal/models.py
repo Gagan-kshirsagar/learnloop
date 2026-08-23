@@ -68,6 +68,4 @@ class User(Base):
 
     tenant: Mapped[Tenant] = relationship("Tenant", back_populates="users")
 
-    __table_args__ = (
-        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
-    )
+    __table_args__ = (UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),)

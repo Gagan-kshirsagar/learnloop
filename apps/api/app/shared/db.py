@@ -64,6 +64,8 @@ class BaseTable(Base):
 
 
 async def set_tenant_context(session: AsyncSession, tenant_id: UUID) -> None:
+    # Ensure role is set to app role so Postgres RLS is strictly enforced
+    await session.execute(text("SET ROLE learnloop_app;"))
     # Set the local Postgres RLS setting for this transaction
     await session.execute(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
@@ -86,4 +88,3 @@ async def get_tenant_session(
     async with session_factory() as session, session.begin():
         await set_tenant_context(session, tenant_id)
         yield session
-

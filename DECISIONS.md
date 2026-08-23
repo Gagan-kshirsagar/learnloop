@@ -19,3 +19,12 @@ are stored in local storage for fast client restore with seamless 401 retry inte
 (with trade-off noted: client storage enables straightforward cross-origin dev and
 instant session restore; production migration to httpOnly SameSite=Strict cookie
 is transparent through the AuthProviderClient boundary).
+
+## 2026-08 — Tenant-Scoped Catalog Hierarchy & Single-Call Retrieval
+Decision: Implement Courses, Modules, and Lessons under strict PostgreSQL RLS policies
+and modular monolith boundaries (`apps/api/app/modules/catalog/api.py`). Course detail
+hierarchy queries leverage SQLAlchemy `selectinload(Course.modules).selectinload(CourseModule.lessons)`
+for O(1) single round-trip DB retrieval without N+1 query overhead. Learner endpoints
+strictly filter to published courses at the SQL query level, while instructor/owner roles
+can manage draft curricula, module/lesson reordering, and publish states. Prose rendering
+is achieved with a zero-client-JS Server Component MarkdownRenderer.
