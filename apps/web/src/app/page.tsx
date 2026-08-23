@@ -1,69 +1,86 @@
-import Image from "next/image";
+import { DemoCard } from "@/components/DemoCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { ArrowRight, BookOpen, BrainCircuit, ShieldCheck } from "lucide-react";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="flex min-h-screen flex-col items-center justify-between p-6 sm:p-12 md:p-20">
+      <header className="flex w-full max-w-5xl items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground font-bold text-sm">
+            LL
+          </div>
+          <span className="text-lg font-bold tracking-tight text-foreground">
+            LearnLoop
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+        <ThemeToggle />
+      </header>
+
+      <section className="flex w-full max-w-3xl flex-col items-center gap-8 py-16 text-center sm:py-24">
+        <div className="inline-flex items-center gap-2 rounded-full border border-subtle bg-surface px-3 py-1 text-xs font-medium text-muted shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+          <span>Slice-0 Foundation Ready</span>
+        </div>
+
+        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
+          AI-native learning built for{" "}
+          <span className="bg-gradient-to-r from-accent to-accent-2 bg-clip-text text-transparent">
+            senior standards
+          </span>
+        </h1>
+
+        <p className="max-w-xl text-lg text-muted">
+          Multi-tenant architecture, PostgreSQL RLS isolation, sub-200ms API fast
+          path, and purposeful motion crafted with Next.js App Router &amp; FastAPI.
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#explore"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-accent px-6 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.98]"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
+            <span>Explore Platform</span>
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://github.com/Gagan-kshirsagar/learnloop"
             target="_blank"
             rel="noopener noreferrer"
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-subtle bg-surface px-6 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.98]"
           >
             Documentation
           </a>
         </div>
-      </main>
-    </div>
+
+        <div className="w-full max-w-md pt-4">
+          <DemoCard />
+        </div>
+      </section>
+
+      <footer className="grid w-full max-w-5xl grid-cols-1 gap-4 border-t border-subtle pt-8 sm:grid-cols-3">
+        <div className="flex items-center gap-3 rounded-lg p-3 text-left">
+          <ShieldCheck className="h-5 w-5 text-accent" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Postgres RLS Multi-Tenancy</p>
+            <p className="text-xs text-muted">Rigid tenant context per request</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg p-3 text-left">
+          <BrainCircuit className="h-5 w-5 text-accent" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium text-foreground">AI-Native Async Pipeline</p>
+            <p className="text-xs text-muted">Fast sync path + background workers</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg p-3 text-left">
+          <BookOpen className="h-5 w-5 text-accent" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Modular Monolith</p>
+            <p className="text-xs text-muted">Strict api.py boundaries enforced in CI</p>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }
