@@ -17,7 +17,15 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/learnloop"
     secret_key: str = "dev-secret-key-change-in-prod"
 
+    # Auth configuration
+    auth_provider: str = "jwt"
+    jwt_secret_key: str = "dev-jwt-secret-key-change-in-prod"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+

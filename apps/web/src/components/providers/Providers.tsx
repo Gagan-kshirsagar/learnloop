@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "framer-motion";
+import { AuthProvider } from "./AuthProvider";
 import { ThemeProvider } from "./ThemeProvider";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -22,7 +23,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <MotionConfig reducedMotion="user">
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryClientProvider>
       </MotionConfig>
     </ThemeProvider>
   );
