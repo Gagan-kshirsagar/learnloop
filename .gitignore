@@ -78,12 +78,16 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # ------------------------------------------------------------------ Databases
-# Local sqlite/dev dumps — never commit data.
+# Local sqlite/dev dumps & local seed scripts — never commit data.
 *.sqlite
 *.sqlite3
 *.db
 *.dump
 pgdata/
+apps/api/scripts/
+*seed*.py
+*seed*.ts
+*seed*.json
 
 # ------------------------------------------------------- AI / project-specific
 # Local model cache, generated embeddings, ingestion scratch, eval outputs.

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-EMAIL_REGEX = re.compile(r"^[\w\.\+\-]+@[\w\-]+\.[a-zA-Z]{2,}$")
+EMAIL_REGEX = re.compile(r"^[\w\.\+\-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
 
 
 class RegisterRequest(BaseModel):

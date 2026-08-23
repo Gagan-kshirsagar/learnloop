@@ -5,16 +5,21 @@ import Link from "next/link";
 import {
   ArrowLeft,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
   FileText,
+  GraduationCap,
   Layers,
+  Loader2,
   Play,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCourseDetailQuery } from "@/lib/query/catalog";
+import { useEnrollInCourseMutation, useMyEnrollmentsQuery } from "@/lib/query/learning";
 
 interface CourseDetailPageProps {
   params: Promise<{ id: string }>;
@@ -25,6 +30,8 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
   const courseId = resolvedParams.id;
 
   const { data: course, isLoading, error, refetch } = useCourseDetailQuery(courseId);
+  const { data: enrollments } = useMyEnrollmentsQuery();
+  const enrollMutation = useEnrollInCourseMutation();
 
   if (isLoading) {
     return (
@@ -68,6 +75,9 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
     );
   }
 
+  const userEnrollment = enrollments?.find((e) => e.course_id === course.id);
+  const isEnrolled = !!userEnrollment;
+
   const firstLesson = course.modules?.[0]?.lessons?.[0];
   const totalLessons = course.modules?.reduce((acc, m) => acc + m.lessons.length, 0) || 0;
 
@@ -85,25 +95,55 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
 
       {/* Course Banner Card */}
       <Card className="border-subtle bg-surface shadow-xs">
-        <CardHeader className="space-y-3">
+        <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                {isEnrolled && (
+                  <Badge className="bg-success-soft text-success border-success/30 gap-1 text-[11px] font-bold">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Enrolled ({userEnrollment.progress_percentage}% Completed)
+                  </Badge>
+                )}
+              </div>
               <CardTitle className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 {course.title}
               </CardTitle>
-              <p className="mt-2 text-sm leading-relaxed text-muted max-w-2xl">
+              <p className="text-sm leading-relaxed text-muted max-w-2xl">
                 {course.description || "No description provided for this course."}
               </p>
             </div>
 
-            {firstLesson && (
-              <Link href={`/app/lessons/${firstLesson.id}`}>
-                <Button className="font-semibold gap-2 shadow-xs shrink-0">
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>Start Learning</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {isEnrolled ? (
+                firstLesson && (
+                  <Link href={`/app/lessons/${firstLesson.id}`}>
+                    <Button className="font-semibold gap-2 shadow-xs">
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <span>Continue Learning</span>
+                    </Button>
+                  </Link>
+                )
+              ) : (
+                <Button
+                  onClick={() => enrollMutation.mutate(course.id)}
+                  disabled={enrollMutation.isPending}
+                  className="font-semibold gap-2 shadow-xs"
+                >
+                  {enrollMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Enrolling…</span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Enroll in Course</span>
+                    </>
+                  )}
                 </Button>
-              </Link>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-muted border-t border-subtle/60 pt-4">

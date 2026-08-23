@@ -28,3 +28,14 @@ for O(1) single round-trip DB retrieval without N+1 query overhead. Learner endp
 strictly filter to published courses at the SQL query level, while instructor/owner roles
 can manage draft curricula, module/lesson reordering, and publish states. Prose rendering
 is achieved with a zero-client-JS Server Component MarkdownRenderer.
+
+## 2026-08 — Sandboxed Subprocess Test Runner, Hidden Tests Privacy & Dynamic Monaco
+Decision: Execute untrusted learner code in an isolated subprocess (`SubprocessPythonRunner`)
+with explicit OS resource limits (RLIMIT_CPU, RLIMIT_AS), strict timeout enforcement (SIGKILL after 4s),
+intercepted socket networking, and temporary directories. The fast-path API queues submissions
+and immediately returns a submission ID with status 'queued'; an async background task evaluates the code
+and persists structured test results (stdout, stderr, tests_passed/total, duration_ms) and updates learner
+progress without holding DB locks. Instructor-authored `tests_code` is strictly stripped from learner-facing
+API responses (`ExerciseResponse`), while authors retain full read/write access (`ExerciseDetailResponse`).
+The web frontend code-splits the heavy Monaco editor via `next/dynamic` with `ssr: false` and a sized skeleton,
+preserving the initial bundle budget well under the 250KB gzipped gate.

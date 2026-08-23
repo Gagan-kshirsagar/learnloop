@@ -29,6 +29,30 @@ def get_test_settings() -> Settings:
     )
 
 
+TABLES_IN_ORDER = [
+    "submissions",
+    "progress",
+    "exercises",
+    "enrollments",
+    "lessons",
+    "modules",
+    "courses",
+    "users",
+    "tenants",
+]
+
+RLS_TABLES = [
+    "users",
+    "courses",
+    "modules",
+    "lessons",
+    "enrollments",
+    "exercises",
+    "submissions",
+    "progress",
+]
+
+
 @pytest_asyncio.fixture(scope="function")
 async def test_engine() -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(
@@ -40,7 +64,7 @@ async def test_engine() -> AsyncIterator[AsyncEngine]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-        for table in ["users", "courses", "modules", "lessons"]:
+        for table in RLS_TABLES:
             await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;"))
             await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;"))
             await conn.execute(text(f"DROP POLICY IF EXISTS tenant_isolation ON {table};"))
@@ -64,11 +88,8 @@ async def test_engine() -> AsyncIterator[AsyncEngine]:
         await conn.execute(text("GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO learnloop_app;"))
     yield engine
     async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM lessons;"))
-        await conn.execute(text("DELETE FROM modules;"))
-        await conn.execute(text("DELETE FROM courses;"))
-        await conn.execute(text("DELETE FROM users;"))
-        await conn.execute(text("DELETE FROM tenants;"))
+        for table in TABLES_IN_ORDER:
+            await conn.execute(text(f"DELETE FROM {table};"))
     await engine.dispose()
 
 
@@ -83,11 +104,8 @@ async def db_session(test_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     async with factory() as session:
         yield session
         async with test_engine.begin() as conn:
-            await conn.execute(text("DELETE FROM lessons;"))
-            await conn.execute(text("DELETE FROM modules;"))
-            await conn.execute(text("DELETE FROM courses;"))
-            await conn.execute(text("DELETE FROM users;"))
-            await conn.execute(text("DELETE FROM tenants;"))
+            for table in TABLES_IN_ORDER:
+                await conn.execute(text(f"DELETE FROM {table};"))
 
 
 @pytest_asyncio.fixture(scope="function")

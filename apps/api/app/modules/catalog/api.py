@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.catalog.internal.models import Course, CourseModule, CourseStatus, Lesson
 from app.modules.catalog.internal.schemas import (
     CourseCreateRequest,
     CourseDetailResponse,
@@ -275,6 +276,10 @@ async def reorder_lessons(
 
 __all__ = [
     "router",
+    "Course",
+    "CourseModule",
+    "Lesson",
+    "CourseStatus",
     "CourseSummaryResponse",
     "CourseDetailResponse",
     "ModuleDetailResponse",
