@@ -17,6 +17,8 @@ class StreamQuestionRequest(BaseModel):
     question: str = Field(..., min_length=2, max_length=1000)
     session_id: UUID | None = None
     lesson_id: UUID | None = None
+    exercise_id: UUID | None = None
+    submission_id: UUID | None = None
 
 
 class CitationResponse(BaseModel):

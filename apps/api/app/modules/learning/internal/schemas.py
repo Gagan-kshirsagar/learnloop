@@ -80,6 +80,7 @@ class SubmissionStatusResponse(BaseModel):
     user_id: UUID
     exercise_id: UUID
     status: str
+    code: str | None = None
     stdout: str | None = None
     stderr: str | None = None
     tests_passed: int

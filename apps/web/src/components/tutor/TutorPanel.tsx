@@ -4,12 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Code2,
+  HelpCircle,
   History,
+  KeyRound,
+  Lightbulb,
   MessageSquare,
   PlusCircle,
   Send,
   Sparkles,
   Square,
+  Terminal,
   Trash2,
   User,
 } from "lucide-react";
@@ -18,6 +25,7 @@ import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTutorStream } from "@/hooks/useTutorStream";
+import type { ToolStep } from "@/lib/api/tutor";
 import { fetchChatSessionDetail } from "@/lib/api/tutor";
 import {
   useChatSessionsQuery,
@@ -27,9 +35,93 @@ import {
 interface TutorPanelProps {
   lessonId: string;
   lessonTitle?: string;
+  exerciseId?: string;
 }
 
-export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
+function ThinkingTrail({
+  steps,
+  isLive,
+}: {
+  steps: ToolStep[];
+  isLive: boolean;
+}) {
+  const [userToggled, setUserToggled] = useState<boolean | null>(null);
+  const isExpanded = userToggled ?? isLive;
+
+  if (!steps || steps.length === 0) return null;
+
+  const getToolIcon = (tool: string) => {
+    switch (tool) {
+      case "read_submission":
+        return <Code2 className="h-3 w-3 text-accent" />;
+      case "retrieve_lesson":
+        return <BookOpen className="h-3 w-3 text-brand" />;
+      case "check_code":
+        return <Terminal className="h-3 w-3 text-emerald-500" />;
+      default:
+        return <Sparkles className="h-3 w-3 text-muted" />;
+    }
+  };
+
+  const getToolLabel = (step: ToolStep) => {
+    if (step.summary) return step.summary;
+    switch (step.tool) {
+      case "read_submission":
+        return "Inspecting learner code submission...";
+      case "retrieve_lesson":
+        return "Searching curriculum context chunks...";
+      case "check_code":
+        return "Running code tests in sandbox...";
+      case "get_progress":
+        return "Checking attempt history...";
+      default:
+        return `Invoking tool: ${step.tool}`;
+    }
+  };
+
+  return (
+    <div className="mb-2.5 rounded-lg border border-subtle/80 bg-surface/50 text-[11px] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setUserToggled(!isExpanded)}
+        className="w-full flex items-center justify-between px-2.5 py-1.5 bg-surface-2/40 hover:bg-surface-2 text-muted hover:text-foreground transition-colors font-mono"
+      >
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3 text-accent" />
+          <span>Agent Reasoning Trail ({steps.length})</span>
+          {isLive && (
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-ping ml-1" />
+          )}
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="p-2 space-y-1.5 divide-y divide-subtle/40">
+          {steps.map((step, idx) => (
+            <div
+              key={idx}
+              className={`flex items-start gap-2 pt-1 first:pt-0 ${
+                step.type === "tool_call" ? "opacity-80" : "font-medium"
+              }`}
+            >
+              <div className="mt-0.5 shrink-0">{getToolIcon(step.tool)}</div>
+              <div className="flex-1 leading-snug break-words">
+                <span>{getToolLabel(step)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProps) {
   const [inputText, setInputText] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
@@ -46,7 +138,7 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
     stop,
     loadSession,
     startNewChat,
-  } = useTutorStream({ lessonId });
+  } = useTutorStream({ lessonId, exerciseId });
 
   const sessionsQuery = useChatSessionsQuery(lessonId);
   const deleteSessionMutation = useDeleteChatSessionMutation();
@@ -98,83 +190,75 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
   return (
     <div className="flex flex-col h-[700px] border border-subtle rounded-xl bg-surface overflow-hidden shadow-xs">
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-subtle bg-surface-2/50 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-subtle bg-surface-2/70">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h2 className="text-xs font-semibold tracking-tight text-foreground">
-                AI Tutor Assistant
-              </h2>
-              <Badge variant="outline" className="text-[9px] bg-accent-soft text-accent border-accent/20 px-1.5 py-0">
-                Streaming SSE
+              <h2 className="text-sm font-semibold text-foreground">Socratic AI Tutor</h2>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                LangGraph ReAct
               </Badge>
             </div>
-            <p className="text-[10px] text-muted line-clamp-1">
-              Grounded in <span className="font-medium text-foreground">{lessonTitle || "this lesson"}</span>
-            </p>
+            {lessonTitle && (
+              <p className="text-xs text-muted truncate max-w-[200px] sm:max-w-xs">
+                {lessonTitle}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
           <Button
-            type="button"
             variant="ghost"
             size="sm"
+            onClick={startNewChat}
+            disabled={isStreaming}
+            className="h-8 text-xs gap-1 text-muted hover:text-foreground"
+            title="New Chat"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New Chat</span>
+          </Button>
+
+          <Button
+            variant={showHistory ? "secondary" : "ghost"}
+            size="sm"
             onClick={() => setShowHistory(!showHistory)}
-            className={`h-7 px-2.5 text-xs gap-1.5 ${showHistory ? "bg-surface-3 text-foreground" : "text-muted hover:text-foreground"}`}
+            className="h-8 text-xs gap-1 text-muted hover:text-foreground"
             title="Conversation History"
           >
             <History className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">History</span>
-            {sessionsQuery.data && sessionsQuery.data.length > 0 && (
-              <span className="ml-0.5 rounded-full bg-accent/15 px-1.5 py-0.2 text-[9px] font-semibold text-accent">
-                {sessionsQuery.data.length}
-              </span>
-            )}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={startNewChat}
-            disabled={isStreaming}
-            className="h-7 px-2.5 text-xs gap-1.5 font-medium border-subtle hover:bg-surface-3"
-          >
-            <PlusCircle className="h-3.5 w-3.5 text-accent" />
-            <span>New Chat</span>
           </Button>
         </div>
       </div>
 
-      {/* Main Content Area: Sidebar History or Chat Message Thread */}
+      {/* Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Chat History Drawer */}
+        {/* Chat Sessions History Drawer */}
         {showHistory && (
-          <div className="absolute inset-0 z-10 bg-surface/95 backdrop-blur-xs p-4 flex flex-col space-y-3 overflow-y-auto border-b border-subtle sm:static sm:w-64 sm:border-r sm:border-b-0 shrink-0">
-            <div className="flex items-center justify-between pb-2 border-b border-subtle">
-              <span className="text-xs font-semibold text-foreground">Saved Conversations</span>
-              <button
-                type="button"
+          <div className="absolute inset-y-0 right-0 w-64 bg-surface border-l border-subtle z-20 shadow-lg p-3 flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-subtle mb-2">
+              <span className="text-xs font-semibold text-foreground">Past Conversations</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-muted"
                 onClick={() => setShowHistory(false)}
-                className="text-xs text-muted hover:text-foreground sm:hidden"
               >
-                Close
-              </button>
+                &times;
+              </Button>
             </div>
 
             {sessionsQuery.isLoading && (
-              <p className="text-xs text-muted">Loading conversations...</p>
+              <div className="p-4 text-center text-xs text-muted">Loading history...</div>
             )}
 
-            {sessionsQuery.data && sessionsQuery.data.length === 0 && (
-              <div className="text-center py-6 text-xs text-muted">
-                <MessageSquare className="h-6 w-6 mx-auto mb-2 opacity-40" />
-                No saved chats yet
-              </div>
+            {!sessionsQuery.isLoading && (sessionsQuery.data?.length ?? 0) === 0 && (
+              <div className="p-4 text-center text-xs text-muted">No saved chats yet.</div>
             )}
 
             <div className="space-y-1.5 flex-1 overflow-y-auto">
@@ -222,25 +306,31 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
                   Ask me anything about this lesson
                 </h3>
                 <p className="text-xs text-muted leading-relaxed">
-                  I will stream answers grounded in the curriculum text and cite specific lesson chunks.
+                  I will reason with tool observations and provide progressive Socratic hints to guide your solution.
                 </p>
               </div>
 
               <div className="w-full space-y-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => handleQuickQuestion("Can you explain the main concept in simple terms?")}
+                  onClick={() => handleQuickQuestion("Why is my code failing? Please guide me.")}
                   className="w-full text-left rounded-lg border border-subtle bg-surface-2/60 p-2.5 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 transition-colors flex items-center justify-between group"
                 >
-                  <span>💡 &ldquo;Explain the main concept in simple terms&rdquo;</span>
+                  <span className="flex items-center gap-1.5">
+                    <Code2 className="h-3.5 w-3.5 text-accent" />
+                    &ldquo;Why is my code failing? Please guide me&rdquo;
+                  </span>
                   <Send className="h-3 w-3 text-muted group-hover:text-accent transition-colors" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleQuickQuestion("What are the key terms and definitions to know?")}
+                  onClick={() => handleQuickQuestion("Can you explain the main concept in simple terms?")}
                   className="w-full text-left rounded-lg border border-subtle bg-surface-2/60 p-2.5 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 transition-colors flex items-center justify-between group"
                 >
-                  <span>📖 &ldquo;What are the key terms and definitions?&rdquo;</span>
+                  <span className="flex items-center gap-1.5">
+                    <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                    &ldquo;Explain the main concept in simple terms&rdquo;
+                  </span>
                   <Send className="h-3 w-3 text-muted group-hover:text-accent transition-colors" />
                 </button>
               </div>
@@ -276,6 +366,14 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                   ) : (
                     <div>
+                      {/* Thinking Trail (Tool Steps) */}
+                      {msg.tool_steps && msg.tool_steps.length > 0 && (
+                        <ThinkingTrail
+                          steps={msg.tool_steps}
+                          isLive={isStreaming && isLatest}
+                        />
+                      )}
+
                       {msg.content ? (
                         <div className="prose prose-xs dark:prose-invert max-w-none">
                           <MarkdownRenderer content={msg.content} />
@@ -289,7 +387,7 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
                           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" />
                           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.2s]" />
                           <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce [animation-delay:0.4s]" />
-                          <span className="text-[11px] text-muted ml-1 font-mono">Thinking...</span>
+                          <span className="text-[11px] text-muted ml-1 font-mono">Agent reasoning...</span>
                         </div>
                       ) : (
                         <span className="text-muted italic">No response</span>
@@ -298,27 +396,33 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
                       {/* Citations Container */}
                       {msg.citations && msg.citations.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-subtle/80 space-y-1.5">
-                          <div className="flex items-center gap-1 text-[10px] font-semibold text-muted uppercase tracking-wider">
-                            <BookOpen className="h-3 w-3 text-accent" />
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-muted">
+                            <BookOpen className="h-3 w-3" />
                             <span>Referenced Lesson Sources ({msg.citations.length})</span>
                           </div>
-                          <div className="grid gap-1.5 sm:grid-cols-2">
-                            {msg.citations.map((c) => (
+                          <div className="grid gap-1.5">
+                            {msg.citations.map((c, i) => (
                               <div
-                                key={`${c.lesson_id}-${c.ordinal}`}
-                                className="rounded-md border border-subtle bg-surface p-2 space-y-1"
+                                key={i}
+                                className="rounded-md border border-subtle/70 bg-surface/70 p-2 text-[11px] space-y-1"
                               >
-                                <div className="flex items-center justify-between text-[10px]">
-                                  <span className="font-semibold text-foreground">
+                                <div className="flex items-center justify-between text-muted">
+                                  <span className="font-medium text-foreground">
                                     Chunk #{c.ordinal + 1}
                                   </span>
-                                  <span className="font-mono text-muted bg-surface-2 px-1 py-0.2 rounded text-[9px]">
-                                    {(c.score * 100).toFixed(0)}%
+                                  <span className="font-mono text-[10px]">
+                                    {Math.round(c.score * 100)}% relevance
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-muted line-clamp-2 font-mono">
-                                  &ldquo;{c.snippet}&rdquo;
-                                </p>
+                                <div className="text-muted/90 line-clamp-3 text-[11px] font-sans">
+                                  <MarkdownRenderer
+                                    content={
+                                      c.snippet.replace(/^#{1,6}\s+[^\n]+\n*/g, "").trim() ||
+                                      c.snippet
+                                    }
+                                    className="text-[11px] text-muted leading-relaxed"
+                                  />
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -330,84 +434,111 @@ export function TutorPanel({ lessonId, lessonTitle }: TutorPanelProps) {
 
                 {/* User Avatar */}
                 {isUser && (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-3 text-muted shrink-0 mt-0.5">
-                    <User className="h-3.5 w-3.5" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 border border-subtle text-foreground shrink-0 mt-0.5">
+                    <User className="h-3.5 w-3.5 opacity-70" />
                   </div>
                 )}
               </div>
             );
           })}
 
-          {/* Error Banner */}
-          {error && (
-            <div className="rounded-xl border border-danger/30 bg-danger-soft p-3 flex items-start gap-2.5 text-xs text-danger">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold">Stream Error</p>
-                <p className="text-[11px] text-muted">{error}</p>
-              </div>
-            </div>
-          )}
-
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Question Input Footer */}
-      <div className="p-3 border-t border-subtle bg-surface shrink-0">
-        <form onSubmit={handleSend} className="space-y-2">
-          <div className="relative flex items-center">
-            <textarea
-              ref={textareaRef}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Ask a question or follow-up... (Enter to send, Shift+Enter for newline)"
-              rows={2}
-              disabled={isStreaming}
-              className="w-full resize-none rounded-xl border border-subtle bg-surface-2 p-3 pr-20 text-xs text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-60"
-            />
-
-            <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
-              {isStreaming ? (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={stop}
-                  className="h-7 px-2.5 text-xs gap-1 font-semibold"
-                  title="Stop generating"
-                >
-                  <Square className="h-3 w-3 fill-current" />
-                  <span>Stop</span>
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!inputText.trim()}
-                  className="h-7 px-3 text-xs gap-1 font-semibold"
-                >
-                  <Send className="h-3 w-3" />
-                  <span>Ask</span>
-                </Button>
-              )}
-            </div>
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-4 mb-2 p-2.5 rounded-lg border border-danger/40 bg-danger-soft text-danger text-xs flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleQuickQuestion(inputText || "Can you explain the main concept?")}
+            className="h-6 text-xs px-2 text-danger hover:bg-danger/10"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
-          <div className="flex items-center justify-between text-[10px] text-faint px-1">
-            <span>AI answers are grounded in lesson context with multi-turn memory</span>
-            {activeSessionId && (
-              <span className="font-mono text-muted">Session active</span>
-            )}
-          </div>
-        </form>
-      </div>
+      {/* Socratic Pedagogy Action Chips */}
+      {messages.length > 0 && !isStreaming && (
+        <div className="px-4 py-1.5 bg-surface-2/30 border-t border-subtle flex items-center gap-1.5 overflow-x-auto text-[11px]">
+          <span className="text-muted shrink-0 flex items-center gap-1">
+            <HelpCircle className="h-3 w-3" />
+            <span>Pedagogy:</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => handleQuickQuestion("I'm still stuck on this exercise. Can you give me a more specific hint?")}
+            className="px-2 py-0.5 rounded-md border border-subtle bg-surface hover:bg-surface-2 text-foreground transition-colors shrink-0 flex items-center gap-1"
+          >
+            <Lightbulb className="h-2.5 w-2.5 text-amber-500" />
+            <span>Still stuck (Hint +)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickQuestion("Please reveal the worked solution and explain each step in detail.")}
+            className="px-2 py-0.5 rounded-md border border-subtle bg-surface hover:bg-surface-2 text-foreground transition-colors shrink-0 flex items-center gap-1"
+          >
+            <KeyRound className="h-2.5 w-2.5 text-accent" />
+            <span>Reveal Solution</span>
+          </button>
+        </div>
+      )}
+
+      {/* Input Composer */}
+      <form
+        onSubmit={handleSend}
+        className="p-3 border-t border-subtle bg-surface flex items-center gap-2"
+      >
+        <div className="relative flex-1">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={
+              isStreaming
+                ? "Tutor is responding..."
+                : "Ask a question or request guidance (Enter to send)..."
+            }
+            disabled={isStreaming}
+            className="w-full resize-none rounded-xl border border-subtle bg-surface-2 px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent disabled:opacity-50 transition-colors"
+          />
+        </div>
+
+        {isStreaming ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={stop}
+            className="h-9 px-3 gap-1.5 text-xs text-danger border-danger/30 hover:bg-danger-soft"
+          >
+            <Square className="h-3 w-3 fill-current" />
+            <span>Stop</span>
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!inputText.trim()}
+            className="h-9 w-9 p-0 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-40"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        )}
+      </form>
     </div>
   );
 }

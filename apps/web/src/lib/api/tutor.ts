@@ -18,11 +18,19 @@ export interface AskQuestionResponse {
   used_context: boolean;
 }
 
+export interface ToolStep {
+  type: "tool_call" | "tool_result";
+  tool: string;
+  summary?: string;
+  args?: Record<string, unknown>;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   citations?: Citation[] | null;
+  tool_steps?: ToolStep[];
   created_at: string;
 }
 

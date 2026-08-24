@@ -228,7 +228,11 @@ export default function LessonPage({ params }: LessonPageProps) {
 
       {/* Ask Tutor Tab View */}
       {activeTab === "tutor" && (
-        <TutorPanel lessonId={lesson.id} lessonTitle={lesson.title} />
+        <TutorPanel
+          lessonId={lesson.id}
+          lessonTitle={lesson.title}
+          exerciseId={exercise?.id}
+        />
       )}
     </div>
   );

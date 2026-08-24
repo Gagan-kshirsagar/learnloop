@@ -9,8 +9,10 @@ function parseInlineFormatting(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
   let remaining = text;
   let key = 0;
+  let safetyCounter = 0;
+  const maxIterations = remaining.length * 2 + 100;
 
-  while (remaining) {
+  while (remaining && safetyCounter++ < maxIterations) {
     // Inline code `code`
     const codeMatch = remaining.match(/^`([^`]+)`/);
     if (codeMatch) {
@@ -74,7 +76,6 @@ function parseInlineFormatting(text: string): ReactNode[] {
       parts.push(remaining);
       break;
     } else if (nextSpecial === 0) {
-      // Stray character
       parts.push(remaining[0]);
       remaining = remaining.slice(1);
     } else {
@@ -95,8 +96,10 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
   const elements: ReactNode[] = [];
   let i = 0;
   let elementKey = 0;
+  let safetyLoopCounter = 0;
+  const maxLineIterations = lines.length * 2 + 100;
 
-  while (i < lines.length) {
+  while (i < lines.length && safetyLoopCounter++ < maxLineIterations) {
     const line = lines[i];
 
     // Fenced Code Block ```lang
@@ -108,7 +111,9 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
         codeLines.push(lines[i]);
         i++;
       }
-      i++; // Skip closing ```
+      if (i < lines.length) {
+        i++; // Skip closing ```
+      }
 
       elements.push(
         <div
@@ -126,49 +131,55 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       continue;
     }
 
-    // Headings #, ##, ###
-    if (line.startsWith("# ")) {
-      elements.push(
-        <h1
-          key={elementKey++}
-          className="mt-6 mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
-        >
-          {parseInlineFormatting(line.slice(2))}
-        </h1>
-      );
+    // Horizontal Rules (---, ***, ___)
+    if (/^(\*{3,}|-{3,}|_{3,})$/.test(line.trim())) {
+      elements.push(<hr key={elementKey++} className="my-4 border-subtle" />);
       i++;
       continue;
     }
-    if (line.startsWith("## ")) {
-      elements.push(
-        <h2
-          key={elementKey++}
-          className="mt-5 mb-2.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl"
-        >
-          {parseInlineFormatting(line.slice(3))}
-        </h2>
-      );
-      i++;
-      continue;
-    }
-    if (line.startsWith("### ")) {
-      elements.push(
-        <h3
-          key={elementKey++}
-          className="mt-4 mb-2 text-lg font-semibold tracking-tight text-foreground"
-        >
-          {parseInlineFormatting(line.slice(4))}
-        </h3>
-      );
+
+    // Headings #, ##, ###, ####, #####, ######
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      if (level === 1) {
+        elements.push(
+          <h1
+            key={elementKey++}
+            className="mt-6 mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+          >
+            {parseInlineFormatting(text)}
+          </h1>
+        );
+      } else if (level === 2) {
+        elements.push(
+          <h2
+            key={elementKey++}
+            className="mt-5 mb-2.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl"
+          >
+            {parseInlineFormatting(text)}
+          </h2>
+        );
+      } else {
+        elements.push(
+          <h3
+            key={elementKey++}
+            className="mt-4 mb-2 text-lg font-semibold tracking-tight text-foreground"
+          >
+            {parseInlineFormatting(text)}
+          </h3>
+        );
+      }
       i++;
       continue;
     }
 
     // Blockquote >
-    if (line.startsWith("> ")) {
+    if (line.startsWith(">")) {
       const quoteLines: string[] = [];
-      while (i < lines.length && lines[i].startsWith("> ")) {
-        quoteLines.push(lines[i].slice(2));
+      while (i < lines.length && lines[i].startsWith(">")) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
       elements.push(
@@ -184,23 +195,38 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       continue;
     }
 
-    // List item - or *
-    if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
+    // List item - or * or 1.
+    if (line.trim().startsWith("- ") || line.trim().startsWith("* ") || /^\d+\.\s+/.test(line.trim())) {
+      const isOrdered = /^\d+\.\s+/.test(line.trim());
       const listItems: string[] = [];
       while (
         i < lines.length &&
-        (lines[i].trim().startsWith("- ") || lines[i].trim().startsWith("* "))
+        (lines[i].trim().startsWith("- ") ||
+          lines[i].trim().startsWith("* ") ||
+          /^\d+\.\s+/.test(lines[i].trim()))
       ) {
-        listItems.push(lines[i].trim().slice(2));
+        const itemText = lines[i].trim().replace(/^(\*|-|\d+\.)\s+/, "");
+        listItems.push(itemText);
         i++;
       }
-      elements.push(
-        <ul key={elementKey++} className="my-3 list-disc space-y-1.5 pl-6 text-sm text-foreground">
-          {listItems.map((item, idx) => (
-            <li key={idx}>{parseInlineFormatting(item)}</li>
-          ))}
-        </ul>
-      );
+
+      if (isOrdered) {
+        elements.push(
+          <ol key={elementKey++} className="my-3 list-decimal space-y-1.5 pl-6 text-sm text-foreground">
+            {listItems.map((item, idx) => (
+              <li key={idx}>{parseInlineFormatting(item)}</li>
+            ))}
+          </ol>
+        );
+      } else {
+        elements.push(
+          <ul key={elementKey++} className="my-3 list-disc space-y-1.5 pl-6 text-sm text-foreground">
+            {listItems.map((item, idx) => (
+              <li key={idx}>{parseInlineFormatting(item)}</li>
+            ))}
+          </ul>
+        );
+      }
       continue;
     }
 
@@ -215,21 +241,28 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !lines[i].startsWith("#") &&
+      !lines[i].match(/^#{1,6}\s+/) &&
       !lines[i].startsWith(">") &&
       !lines[i].trim().startsWith("```") &&
       !lines[i].trim().startsWith("- ") &&
-      !lines[i].trim().startsWith("* ")
+      !lines[i].trim().startsWith("* ") &&
+      !/^\d+\.\s+/.test(lines[i].trim()) &&
+      !/^(\*{3,}|-{3,}|_{3,})$/.test(lines[i].trim())
     ) {
       paragraphLines.push(lines[i]);
       i++;
     }
 
-    elements.push(
-      <p key={elementKey++} className="my-2.5 text-sm leading-relaxed text-foreground/90">
-        {parseInlineFormatting(paragraphLines.join(" "))}
-      </p>
-    );
+    if (paragraphLines.length > 0) {
+      elements.push(
+        <p key={elementKey++} className="my-2.5 text-sm leading-relaxed text-foreground/90">
+          {parseInlineFormatting(paragraphLines.join(" "))}
+        </p>
+      );
+    } else {
+      // Guaranteed forward progress
+      i++;
+    }
   }
 
   return <div className={`prose-container ${className}`}>{elements}</div>;

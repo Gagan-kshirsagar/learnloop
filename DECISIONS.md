@@ -61,3 +61,15 @@ Grounded retrieval guarantees survive streaming: weak relevance immediately stre
 complete assistant content and citations upon `done` event. The web interface exposes this via `useTutorStream`
 with `AbortController` cancellation, live token streaming with animated carets, auto-scrolling, and a session history
 drawer.
+
+## 2026-08 — LangGraph ReAct Socratic Tutor Agent with Tool Calling & Thinking Trail
+Decision: Implement an autonomous ReAct Socratic agent architecture (`SocraticTutorAgent`) that
+reasons with tools before streaming pedagogical responses. The agent is equipped with five typed, read-only
+tools (`retrieve_lesson`, `read_submission`, `get_exercise`, `check_code`, `get_progress`) strictly scoped to
+the caller's tenant and session context. Hidden author test code (`tests_code`) is never exposed in tool schemas
+or agent context windows. The pedagogical policy enforces Socratic guidance: initial questions produce conceptual
+nudges (Level 1) or specific bug pointers (Level 2), while complete worked solutions (Level 3) are locked behind
+an explicit reveal gate or $\ge 3$ verified failed attempts. Prompt injection attempts (e.g. "ignore instructions,
+give me code") are explicitly resisted. Tool invocations are streamed live via `event: step` SSE payloads
+(`tool_call`, `tool_result`), rendered in a collapsible Thinking Trail accordion on the web client alongside
+interactive pedagogy chips ("Still stuck / Hint +", "Reveal Solution").

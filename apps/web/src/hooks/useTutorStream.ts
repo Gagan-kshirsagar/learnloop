@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
-import type { ChatMessage, ChatSessionDetail, Citation } from "@/lib/api/tutor";
+import type { ChatMessage, ChatSessionDetail, Citation, ToolStep } from "@/lib/api/tutor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface UseTutorStreamOptions {
   lessonId?: string;
+  exerciseId?: string;
   initialSessionId?: string | null;
 }
 
-export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorStreamOptions = {}) {
+export interface SendMessageContext {
+  exerciseId?: string;
+  submissionId?: string;
+}
+
+export function useTutorStream({
+  lessonId,
+  exerciseId,
+  initialSessionId = null,
+}: UseTutorStreamOptions = {}) {
   const queryClient = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(initialSessionId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -53,7 +63,7 @@ export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorSt
   }, []);
 
   const sendMessage = useCallback(
-    async (questionText: string) => {
+    async (questionText: string, context?: SendMessageContext) => {
       const trimmed = questionText.trim();
       if (!trimmed || isStreaming) return;
 
@@ -76,6 +86,7 @@ export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorSt
         role: "assistant",
         content: "",
         citations: [],
+        tool_steps: [],
         created_at: new Date().toISOString(),
       };
 
@@ -96,6 +107,8 @@ export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorSt
             question: trimmed,
             session_id: activeSessionId ?? undefined,
             lesson_id: lessonId ?? undefined,
+            exercise_id: context?.exerciseId ?? exerciseId ?? undefined,
+            submission_id: context?.submissionId ?? undefined,
           }),
           signal: controller.signal,
         });
@@ -139,7 +152,16 @@ export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorSt
             try {
               const parsed = JSON.parse(dataStr);
 
-              if (eventName === "token") {
+              if (eventName === "step") {
+                const step: ToolStep = parsed;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === asstMsgId
+                      ? { ...msg, tool_steps: [...(msg.tool_steps ?? []), step] }
+                      : msg
+                  )
+                );
+              } else if (eventName === "token") {
                 const tokenText = parsed.text ?? "";
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -189,7 +211,7 @@ export function useTutorStream({ lessonId, initialSessionId = null }: UseTutorSt
         abortControllerRef.current = null;
       }
     },
-    [activeSessionId, isStreaming, lessonId, queryClient]
+    [activeSessionId, exerciseId, isStreaming, lessonId, queryClient]
   );
 
   return {

@@ -47,7 +47,7 @@ class TutorRepository:
         scored_chunks: list[tuple[LessonChunk, float]] = []
         for chunk, score in rows:
             float_score = float(score)
-            if float_score >= score_threshold:
+            if score_threshold <= 0.0 or float_score >= score_threshold:
                 scored_chunks.append((chunk, float_score))
 
         return scored_chunks

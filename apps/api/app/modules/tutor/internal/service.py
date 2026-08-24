@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.catalog.api import CourseModule, Lesson
 from app.modules.tutor.internal.chunker import MarkdownChunker
 from app.modules.tutor.internal.embeddings import EmbeddingsProvider
+from app.modules.tutor.internal.graph import SocraticTutorAgent, TutorAgentState
 from app.modules.tutor.internal.llm import LLMProvider
 from app.modules.tutor.internal.models import LessonChunk
 from app.modules.tutor.internal.repository import TutorRepository
@@ -24,6 +25,7 @@ from app.modules.tutor.internal.schemas import (
     LessonIngestResponse,
     StreamQuestionRequest,
 )
+from app.modules.tutor.internal.tools import TutorTools
 from app.shared.config import get_settings
 
 
@@ -198,7 +200,7 @@ class TutorService:
             used_context=True,
         )
 
-    # ── Streaming Q&A with Multi-Turn Memory (Slice 5) ──
+    # ── Socratic LangGraph ReAct Agent Streaming (Slice 6) ──
 
     async def stream_question(
         self,
@@ -208,8 +210,6 @@ class TutorService:
         req: StreamQuestionRequest,
     ) -> AsyncIterator[str]:
         repo = TutorRepository(session)
-        settings = get_settings()
-        effective_threshold = getattr(settings, "rag_score_threshold", 0.05)
 
         # 1. Resolve or create chat session
         if req.session_id:
@@ -234,6 +234,7 @@ class TutorService:
 
         # 2. Fetch prior conversation turns for prompt memory
         recent_history = await repo.get_recent_messages(active_session_id, limit=8)
+        prior_messages = [{"role": m.role, "content": m.content} for m in recent_history]
 
         # 3. Persist incoming user message
         await repo.save_message(
@@ -245,112 +246,62 @@ class TutorService:
         await repo.touch_session(active_session_id)
         await session.flush()
 
-        # 4. Embed query and retrieve lesson chunks
-        query_vector = await self.embeddings.embed_query(req.question)
-        scored_chunks = await repo.search_similar_chunks(
-            embedding=query_vector,
-            top_k=5,
+        # 4. Instantiate Socratic Agent and execute graph
+        tools = TutorTools(
+            session=session,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            embeddings_provider=self.embeddings,
+        )
+
+        progress_info = await tools.get_progress(
+            lesson_id=req.lesson_id, exercise_id=req.exercise_id
+        )
+        attempt_count = progress_info.get("attempts", 0)
+
+        agent_state = TutorAgentState(
+            question=req.question.strip(),
+            user_id=user_id,
+            tenant_id=tenant_id,
+            session_id=active_session_id,
             lesson_id=req.lesson_id,
-            score_threshold=effective_threshold,
+            exercise_id=req.exercise_id,
+            submission_id=req.submission_id,
+            attempt_count=attempt_count,
+            prior_messages=prior_messages,
         )
 
-        # 5. Grounding Refusal Guard: if out-of-scope, stream decline without hallucinations
-        if not scored_chunks:
-            refusal_text = "That isn't covered in this lesson."
-            token_payload = json.dumps({"text": refusal_text})
-            yield f"event: token\ndata: {token_payload}\n\n"
-            yield f"event: citations\ndata: {json.dumps({'citations': []})}\n\n"
-
-            # Persist refusal assistant response
-            asst_msg = await repo.save_message(
-                tenant_id=tenant_id,
-                session_id=active_session_id,
-                role="assistant",
-                content=refusal_text,
-                citations=[],
-            )
-            await session.flush()
-
-            done_payload = json.dumps(
-                {
-                    "session_id": str(active_session_id),
-                    "message_id": str(asst_msg.id),
-                }
-            )
-            yield f"event: done\ndata: {done_payload}\n\n"
-            return
-
-        # 6. Build citations payload
-        citations_list = []
-        context_parts = []
-        for i, (chunk, score) in enumerate(scored_chunks):
-            snippet = chunk.content[:200].replace("\n", " ") + (
-                "..." if len(chunk.content) > 200 else ""
-            )
-            citations_list.append(
-                {
-                    "lesson_id": str(chunk.lesson_id),
-                    "ordinal": chunk.ordinal,
-                    "snippet": snippet,
-                    "score": round(score, 3),
-                }
-            )
-            context_parts.append(f"[{i + 1}] (Lesson Chunk {chunk.ordinal}):\n{chunk.content}")
-
-        context_text = "\n\n".join(context_parts)
-
-        # 7. Format memory lines from prior turns (excluding the question we just added)
-        memory_lines = []
-        for msg in recent_history:
-            role_label = "Student" if msg.role == "user" else "Tutor"
-            memory_lines.append(f"{role_label}: {msg.content}")
-
-        memory_section = ""
-        if memory_lines:
-            memory_section = "Conversation History:\n" + "\n".join(memory_lines) + "\n\n"
-
-        system_instruction = (
-            "You are LearnLoop AI Tutor. Answer the student's question using ONLY "
-            "the provided lesson context chunks. Maintain conversation continuity with "
-            "prior turns when relevant. Explain concepts clearly and concisely. "
-            "If the question cannot be answered using the provided context, state that "
-            "it is not covered in the lesson."
-        )
-        prompt = (
-            f"{memory_section}"
-            f"Lesson Context Chunks:\n{context_text}\n\n"
-            f"Student Question: {req.question}\n\n"
-            "Answer:"
+        agent = SocraticTutorAgent(
+            tools=tools,
+            llm=self.llm,
+            max_iterations=4,
         )
 
-        # 8. Stream LLM tokens
-        accumulated_tokens: list[str] = []
         try:
-            async for token in self.llm.generate_stream(
-                prompt=prompt,
-                system_instruction=system_instruction,
-                temperature=0.2,
-            ):
-                accumulated_tokens.append(token)
-                token_event = json.dumps({"text": token})
-                yield f"event: token\ndata: {token_event}\n\n"
+            async for sse_chunk in agent.execute_stream(agent_state):
+                yield sse_chunk
 
-            # 9. Emit citations event
-            cit_event = json.dumps({"citations": citations_list})
-            yield f"event: citations\ndata: {cit_event}\n\n"
+            # 5. Persist complete assistant response and citations
+            final_text = (
+                agent_state.final_answer
+                if agent_state.final_answer
+                else (
+                    "That isn't covered in this lesson."
+                    if agent_state.is_out_of_scope
+                    else "I couldn't find a solution for that."
+                )
+            )
 
-            # 10. Persist complete assistant message to DB
-            full_answer = "".join(accumulated_tokens)
             asst_msg = await repo.save_message(
                 tenant_id=tenant_id,
                 session_id=active_session_id,
                 role="assistant",
-                content=full_answer,
-                citations=citations_list,
+                content=final_text,
+                citations=agent_state.citations,
             )
             await session.flush()
 
-            # 11. Emit done event
+            # 6. Emit done event
             done_event = json.dumps(
                 {
                     "session_id": str(active_session_id),
