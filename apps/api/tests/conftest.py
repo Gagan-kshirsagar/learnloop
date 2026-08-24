@@ -26,10 +26,13 @@ def get_test_settings() -> Settings:
         database_url=TEST_DATABASE_URL,
         jwt_secret_key="test-jwt-secret-key",
         auth_provider="jwt",
+        llm_provider="mock",
+        embeddings_provider="mock",
     )
 
 
 TABLES_IN_ORDER = [
+    "lesson_chunks",
     "submissions",
     "progress",
     "exercises",
@@ -50,6 +53,7 @@ RLS_TABLES = [
     "exercises",
     "submissions",
     "progress",
+    "lesson_chunks",
 ]
 
 
@@ -62,6 +66,7 @@ async def test_engine() -> AsyncIterator[AsyncEngine]:
         poolclass=NullPool,
     )
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         await conn.run_sync(Base.metadata.create_all)
 
         for table in RLS_TABLES:

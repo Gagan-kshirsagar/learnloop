@@ -39,3 +39,15 @@ progress without holding DB locks. Instructor-authored `tests_code` is strictly 
 API responses (`ExerciseResponse`), while authors retain full read/write access (`ExerciseDetailResponse`).
 The web frontend code-splits the heavy Monaco editor via `next/dynamic` with `ssr: false` and a sized skeleton,
 preserving the initial bundle budget well under the 250KB gzipped gate.
+
+## 2026-08 — Tutor RAG Foundation: pgvector, Idempotent Ingestion & Grounded Citations
+Decision: Implement grounding-first RAG in the `tutor` module utilizing PostgreSQL `pgvector(768)`
+with HNSW cosine indexing (`vector_cosine_ops`) and PostgreSQL Row-Level Security (`tenant_isolation`).
+Lesson ingestion chunks markdown on block/heading boundaries (~500 tokens, ~60 token overlap) with
+transactional replacement to guarantee idempotency on curriculum edits. Provider-agnostic abstractions
+(`EmbeddingsProvider`, `LLMProvider`) support Gemini (`text-embedding-004`, `gemini-1.5-flash`) in production
+and deterministic mock providers in CI for 100% offline, reproducible test runs. Retrieval incorporates a strict
+grounding refusal guard: questions with zero or below-threshold cosine relevance return an explicit refusal
+("That isn't covered in this lesson.") without invoking the LLM, preventing hallucinations and conserving tokens.
+The frontend surfaces this through a responsive `TutorPanel` with chunk citation cards and 4 UI states.
+

@@ -129,14 +129,11 @@ class LearningService:
         self,
         session: AsyncSession,
         lesson_id: UUID,
-    ) -> ExerciseResponse:
+    ) -> ExerciseResponse | None:
         repo = ExerciseRepository(session)
         exercise = await repo.get_by_lesson_id(lesson_id)
         if not exercise:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No exercise found for this lesson",
-            )
+            return None
         # tests_code is omitted from ExerciseResponse
         return ExerciseResponse.model_validate(exercise)
 

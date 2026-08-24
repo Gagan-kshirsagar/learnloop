@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   Code2,
   Share2,
+  Sparkles,
 } from "lucide-react";
 
 import { ExerciseWorkspace } from "@/components/exercise/ExerciseWorkspace";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { TutorPanel } from "@/components/tutor/TutorPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +29,7 @@ export default function LessonPage({ params }: LessonPageProps) {
   const resolvedParams = use(params);
   const lessonId = resolvedParams.id;
 
-  const [activeTab, setActiveTab] = useState<"reading" | "exercise">("reading");
+  const [activeTab, setActiveTab] = useState<"reading" | "exercise" | "tutor">("reading");
 
   const { data: lesson, isLoading, error, refetch } = useLessonDetailQuery(lessonId);
   const { data: exercise } = useExerciseQuery(lessonId);
@@ -92,20 +94,20 @@ export default function LessonPage({ params }: LessonPageProps) {
 
         <div className="flex items-center gap-2">
           {/* View Tab Switcher */}
-          {exercise && (
-            <div className="flex items-center rounded-lg border border-subtle bg-surface-2 p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveTab("reading")}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                  activeTab === "reading"
-                    ? "bg-surface text-foreground font-semibold shadow-xs"
-                    : "text-muted hover:text-foreground"
-                }`}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>Reading</span>
-              </button>
+          <div className="flex items-center rounded-lg border border-subtle bg-surface-2 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab("reading")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "reading"
+                  ? "bg-surface text-foreground font-semibold shadow-xs"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Reading</span>
+            </button>
+            {exercise && (
               <button
                 type="button"
                 onClick={() => setActiveTab("exercise")}
@@ -121,8 +123,20 @@ export default function LessonPage({ params }: LessonPageProps) {
                   Python
                 </Badge>
               </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveTab("tutor")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                activeTab === "tutor"
+                  ? "bg-surface text-foreground font-semibold shadow-xs"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <span>Ask Tutor</span>
+            </button>
+          </div>
 
           <Button
             variant="ghost"
@@ -140,43 +154,48 @@ export default function LessonPage({ params }: LessonPageProps) {
         </div>
       </div>
 
-      {/* Lesson Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-          {lesson.title}
-        </h1>
-      </div>
-
       {/* Reading Tab View */}
       {activeTab === "reading" && (
         <div className="space-y-6">
-          <Card className="border-subtle bg-surface shadow-xs overflow-hidden">
-            <CardContent className="p-6 sm:p-10">
+          <div className="space-y-2 border-b border-subtle pb-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-mono">
+                Lesson #{lesson.position}
+              </Badge>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              {lesson.title}
+            </h1>
+          </div>
+
+          <Card className="border-subtle bg-surface shadow-xs">
+            <CardContent className="p-6 sm:p-8">
               <MarkdownRenderer content={lesson.content_md} />
             </CardContent>
           </Card>
 
-          {/* Mark Completed & Next Steps */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-subtle bg-surface-2/40 p-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-success-soft text-success shrink-0">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground">Finished reading this lesson?</p>
-                <p className="text-[11px] text-muted">
-                  {exercise
-                    ? "Complete the coding challenge to reinforce your understanding."
-                    : "Mark this lesson as completed to track your curriculum progress."}
-                </p>
-              </div>
+          {/* Lesson Completion / Next CTA Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-subtle bg-surface-2 p-4">
+            <div className="text-xs text-muted">
+              {exercise
+                ? "This lesson includes an interactive coding exercise to test your understanding."
+                : "Finished reviewing the concepts in this lesson?"}
             </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveTab("tutor")}
+                className="gap-1.5 text-xs"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-accent" />
+                <span>Ask Question</span>
+              </Button>
               {exercise ? (
                 <Button
+                  size="sm"
                   onClick={() => setActiveTab("exercise")}
-                  className="font-semibold gap-1.5 text-xs"
+                  className="bg-accent text-accent-foreground font-semibold gap-1.5 text-xs"
                 >
                   <Code2 className="h-3.5 w-3.5" />
                   <span>Start Coding Challenge</span>
@@ -205,6 +224,11 @@ export default function LessonPage({ params }: LessonPageProps) {
           exercise={exercise}
           onCompleted={handleLessonCompleted}
         />
+      )}
+
+      {/* Ask Tutor Tab View */}
+      {activeTab === "tutor" && (
+        <TutorPanel lessonId={lesson.id} lessonTitle={lesson.title} />
       )}
     </div>
   );

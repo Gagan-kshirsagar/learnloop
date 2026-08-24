@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # AI / Tutor configuration
+    google_api_key: str = ""
+    llm_provider: str = "gemini"
+    embeddings_provider: str = "gemini"
+    rag_score_threshold: float = 0.05
+
 
 @lru_cache
 def get_settings() -> Settings:

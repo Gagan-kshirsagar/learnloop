@@ -70,13 +70,13 @@ async def list_my_enrollments(
 # ── Exercise Endpoints (Learner & Author) ──
 
 
-@router.get("/lessons/{lesson_id}/exercise", response_model=ExerciseResponse)
+@router.get("/lessons/{lesson_id}/exercise", response_model=ExerciseResponse | None)
 async def get_exercise_for_lesson(
     lesson_id: UUID,
     _current_user: UserResponse = Depends(get_current_user),
     service: LearningService = Depends(get_learning_service),
     session: AsyncSession = Depends(get_tenant_db_session),
-) -> ExerciseResponse:
+) -> ExerciseResponse | None:
     return await service.get_exercise_for_learner(session, lesson_id=lesson_id)
 
 
