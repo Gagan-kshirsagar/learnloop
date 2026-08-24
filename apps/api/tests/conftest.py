@@ -32,6 +32,8 @@ def get_test_settings() -> Settings:
 
 
 TABLES_IN_ORDER = [
+    "chat_messages",
+    "chat_sessions",
     "lesson_chunks",
     "submissions",
     "progress",
@@ -54,6 +56,8 @@ RLS_TABLES = [
     "submissions",
     "progress",
     "lesson_chunks",
+    "chat_sessions",
+    "chat_messages",
 ]
 
 

@@ -1,4 +1,6 @@
+import json
 import uuid
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -14,9 +16,13 @@ from app.modules.tutor.internal.repository import TutorRepository
 from app.modules.tutor.internal.router import get_model_router
 from app.modules.tutor.internal.schemas import (
     AskQuestionResponse,
+    ChatMessageResponse,
+    ChatSessionDetailResponse,
+    ChatSessionResponse,
     CitationResponse,
     CourseIngestResponse,
     LessonIngestResponse,
+    StreamQuestionRequest,
 )
 from app.shared.config import get_settings
 
@@ -33,13 +39,14 @@ class TutorService:
         self.llm = llm_provider or router.get_llm_provider()
         self.chunker = chunker or MarkdownChunker()
 
+    # ── Ingestion Pipeline ──
+
     async def ingest_lesson(
         self,
         session: AsyncSession,
         tenant_id: UUID,
         lesson_id: UUID,
     ) -> LessonIngestResponse:
-        # 1. Fetch lesson within tenant scope
         query = select(Lesson).where(Lesson.id == lesson_id)
         result = await session.execute(query)
         lesson = result.scalar_one_or_none()
@@ -50,11 +57,8 @@ class TutorService:
             )
 
         repo = TutorRepository(session)
-
-        # 2. Chunk lesson markdown content
         chunk_payloads = self.chunker.chunk_document(lesson.content_md)
         if not chunk_payloads:
-            # Idempotent cleanup if lesson content is empty
             await repo.delete_chunks_by_lesson(lesson_id)
             return LessonIngestResponse(
                 lesson_id=lesson_id,
@@ -62,11 +66,10 @@ class TutorService:
                 total_tokens=0,
             )
 
-        # 3. Batch generate embeddings for chunks
         texts = [c.content for c in chunk_payloads]
         embeddings = await self.embeddings.embed_documents(texts)
 
-        # 4. Transactionally replace existing chunks (Idempotent)
+        # Idempotently replace existing chunks
         await repo.delete_chunks_by_lesson(lesson_id)
 
         new_chunks = [
@@ -96,7 +99,6 @@ class TutorService:
         tenant_id: UUID,
         course_id: UUID,
     ) -> CourseIngestResponse:
-        # Fetch all lessons in course hierarchy
         query = (
             select(Lesson)
             .join(CourseModule, Lesson.module_id == CourseModule.id)
@@ -123,6 +125,8 @@ class TutorService:
             total_chunks=total_chunks,
         )
 
+    # ── Non-Streaming Q&A (Slice 4 Compatibility) ──
+
     async def ask_question(
         self,
         session: AsyncSession,
@@ -137,13 +141,10 @@ class TutorService:
         effective_threshold = (
             score_threshold
             if score_threshold is not None
-            else getattr(settings, "rag_score_threshold", 0.35)
+            else getattr(settings, "rag_score_threshold", 0.05)
         )
 
-        # 1. Embed query
         query_vector = await self.embeddings.embed_query(question)
-
-        # 2. Retrieve top-k cosine similar chunks scoped by tenant & lesson
         scored_chunks = await repo.search_similar_chunks(
             embedding=query_vector,
             top_k=top_k,
@@ -151,7 +152,6 @@ class TutorService:
             score_threshold=effective_threshold,
         )
 
-        # 3. Grounding Refusal Guard: if insufficient relevance, decline without calling LLM
         if not scored_chunks:
             return AskQuestionResponse(
                 answer="That isn't covered in this lesson.",
@@ -159,7 +159,6 @@ class TutorService:
                 used_context=False,
             )
 
-        # 4. Build grounded prompt
         context_parts = []
         citations: list[CitationResponse] = []
         for i, (chunk, score) in enumerate(scored_chunks):
@@ -187,7 +186,6 @@ class TutorService:
             f"Lesson Context Chunks:\n{context_text}\n\nStudent Question: {question}\n\nAnswer:"
         )
 
-        # 5. Invoke LLM for grounded answer
         answer = await self.llm.generate(
             prompt=prompt,
             system_instruction=system_instruction,
@@ -199,3 +197,265 @@ class TutorService:
             citations=citations,
             used_context=True,
         )
+
+    # ── Streaming Q&A with Multi-Turn Memory (Slice 5) ──
+
+    async def stream_question(
+        self,
+        session: AsyncSession,
+        tenant_id: UUID,
+        user_id: UUID,
+        req: StreamQuestionRequest,
+    ) -> AsyncIterator[str]:
+        repo = TutorRepository(session)
+        settings = get_settings()
+        effective_threshold = getattr(settings, "rag_score_threshold", 0.05)
+
+        # 1. Resolve or create chat session
+        if req.session_id:
+            chat_session = await repo.get_session(req.session_id)
+            if not chat_session:
+                yield f"event: error\ndata: {json.dumps({'message': 'Chat session not found'})}\n\n"
+                return
+            if chat_session.user_id != user_id:
+                err_payload = json.dumps({"message": "Access forbidden to session"})
+                yield f"event: error\ndata: {err_payload}\n\n"
+                return
+            active_session_id = chat_session.id
+        else:
+            title = req.question.strip()[:50] + ("..." if len(req.question.strip()) > 50 else "")
+            chat_session = await repo.create_session(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                title=title,
+                lesson_id=req.lesson_id,
+            )
+            active_session_id = chat_session.id
+
+        # 2. Fetch prior conversation turns for prompt memory
+        recent_history = await repo.get_recent_messages(active_session_id, limit=8)
+
+        # 3. Persist incoming user message
+        await repo.save_message(
+            tenant_id=tenant_id,
+            session_id=active_session_id,
+            role="user",
+            content=req.question.strip(),
+        )
+        await repo.touch_session(active_session_id)
+        await session.flush()
+
+        # 4. Embed query and retrieve lesson chunks
+        query_vector = await self.embeddings.embed_query(req.question)
+        scored_chunks = await repo.search_similar_chunks(
+            embedding=query_vector,
+            top_k=5,
+            lesson_id=req.lesson_id,
+            score_threshold=effective_threshold,
+        )
+
+        # 5. Grounding Refusal Guard: if out-of-scope, stream decline without hallucinations
+        if not scored_chunks:
+            refusal_text = "That isn't covered in this lesson."
+            token_payload = json.dumps({"text": refusal_text})
+            yield f"event: token\ndata: {token_payload}\n\n"
+            yield f"event: citations\ndata: {json.dumps({'citations': []})}\n\n"
+
+            # Persist refusal assistant response
+            asst_msg = await repo.save_message(
+                tenant_id=tenant_id,
+                session_id=active_session_id,
+                role="assistant",
+                content=refusal_text,
+                citations=[],
+            )
+            await session.flush()
+
+            done_payload = json.dumps(
+                {
+                    "session_id": str(active_session_id),
+                    "message_id": str(asst_msg.id),
+                }
+            )
+            yield f"event: done\ndata: {done_payload}\n\n"
+            return
+
+        # 6. Build citations payload
+        citations_list = []
+        context_parts = []
+        for i, (chunk, score) in enumerate(scored_chunks):
+            snippet = chunk.content[:200].replace("\n", " ") + (
+                "..." if len(chunk.content) > 200 else ""
+            )
+            citations_list.append(
+                {
+                    "lesson_id": str(chunk.lesson_id),
+                    "ordinal": chunk.ordinal,
+                    "snippet": snippet,
+                    "score": round(score, 3),
+                }
+            )
+            context_parts.append(f"[{i + 1}] (Lesson Chunk {chunk.ordinal}):\n{chunk.content}")
+
+        context_text = "\n\n".join(context_parts)
+
+        # 7. Format memory lines from prior turns (excluding the question we just added)
+        memory_lines = []
+        for msg in recent_history:
+            role_label = "Student" if msg.role == "user" else "Tutor"
+            memory_lines.append(f"{role_label}: {msg.content}")
+
+        memory_section = ""
+        if memory_lines:
+            memory_section = "Conversation History:\n" + "\n".join(memory_lines) + "\n\n"
+
+        system_instruction = (
+            "You are LearnLoop AI Tutor. Answer the student's question using ONLY "
+            "the provided lesson context chunks. Maintain conversation continuity with "
+            "prior turns when relevant. Explain concepts clearly and concisely. "
+            "If the question cannot be answered using the provided context, state that "
+            "it is not covered in the lesson."
+        )
+        prompt = (
+            f"{memory_section}"
+            f"Lesson Context Chunks:\n{context_text}\n\n"
+            f"Student Question: {req.question}\n\n"
+            "Answer:"
+        )
+
+        # 8. Stream LLM tokens
+        accumulated_tokens: list[str] = []
+        try:
+            async for token in self.llm.generate_stream(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                temperature=0.2,
+            ):
+                accumulated_tokens.append(token)
+                token_event = json.dumps({"text": token})
+                yield f"event: token\ndata: {token_event}\n\n"
+
+            # 9. Emit citations event
+            cit_event = json.dumps({"citations": citations_list})
+            yield f"event: citations\ndata: {cit_event}\n\n"
+
+            # 10. Persist complete assistant message to DB
+            full_answer = "".join(accumulated_tokens)
+            asst_msg = await repo.save_message(
+                tenant_id=tenant_id,
+                session_id=active_session_id,
+                role="assistant",
+                content=full_answer,
+                citations=citations_list,
+            )
+            await session.flush()
+
+            # 11. Emit done event
+            done_event = json.dumps(
+                {
+                    "session_id": str(active_session_id),
+                    "message_id": str(asst_msg.id),
+                }
+            )
+            yield f"event: done\ndata: {done_event}\n\n"
+
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'message': str(exc)})}\n\n"
+
+    # ── Session Management Endpoints ──
+
+    async def list_sessions(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        lesson_id: UUID | None = None,
+    ) -> list[ChatSessionResponse]:
+        repo = TutorRepository(session)
+        sessions = await repo.list_user_sessions(user_id=user_id, lesson_id=lesson_id)
+        return [
+            ChatSessionResponse(
+                id=s.id,
+                lesson_id=s.lesson_id,
+                title=s.title,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+            )
+            for s in sessions
+        ]
+
+    async def get_session_detail(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+    ) -> ChatSessionDetailResponse:
+        repo = TutorRepository(session)
+        chat_session = await repo.get_session(session_id)
+        if not chat_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat session not found",
+            )
+        if chat_session.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden to this session",
+            )
+
+        messages = await repo.get_session_messages(session_id)
+        msg_responses = []
+        for m in messages:
+            citations_obj = None
+            if m.citations:
+                citations_obj = [
+                    CitationResponse(
+                        lesson_id=UUID(c["lesson_id"])
+                        if isinstance(c["lesson_id"], str)
+                        else c["lesson_id"],
+                        ordinal=c["ordinal"],
+                        snippet=c["snippet"],
+                        score=c["score"],
+                    )
+                    for c in m.citations
+                ]
+            msg_responses.append(
+                ChatMessageResponse(
+                    id=m.id,
+                    role=m.role,
+                    content=m.content,
+                    citations=citations_obj,
+                    created_at=m.created_at,
+                )
+            )
+
+        return ChatSessionDetailResponse(
+            session=ChatSessionResponse(
+                id=chat_session.id,
+                lesson_id=chat_session.lesson_id,
+                title=chat_session.title,
+                created_at=chat_session.created_at,
+                updated_at=chat_session.updated_at,
+            ),
+            messages=msg_responses,
+        )
+
+    async def delete_session(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        session_id: UUID,
+    ) -> None:
+        repo = TutorRepository(session)
+        chat_session = await repo.get_session(session_id)
+        if not chat_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat session not found",
+            )
+        if chat_session.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden to this session",
+            )
+        await repo.delete_session(session_id)
+        await session.flush()

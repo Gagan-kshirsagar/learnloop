@@ -51,3 +51,13 @@ grounding refusal guard: questions with zero or below-threshold cosine relevance
 ("That isn't covered in this lesson.") without invoking the LLM, preventing hallucinations and conserving tokens.
 The frontend surfaces this through a responsive `TutorPanel` with chunk citation cards and 4 UI states.
 
+## 2026-08 — Streaming Tutor Responses (SSE) & Multi-Turn Chat Sessions
+Decision: Extend the tutor module with token-by-token Server-Sent Events (`POST /api/v1/tutor/stream`)
+and persistent conversation sessions (`chat_sessions`, `chat_messages`) under PostgreSQL RLS and user-level
+ownership checks (403 Forbidden). Multi-turn memory includes up to the last 8 messages (~4 turns) from the active
+session, capped within a token budget to maintain conversation continuity without overflowing context windows.
+Grounded retrieval guarantees survive streaming: weak relevance immediately streams the refusal message with
+`citations: []` and persists the response. Stream reconciliation saves user prompts on connection start and writes
+complete assistant content and citations upon `done` event. The web interface exposes this via `useTutorStream`
+with `AbortController` cancellation, live token streaming with animated carets, auto-scrolling, and a session history
+drawer.
