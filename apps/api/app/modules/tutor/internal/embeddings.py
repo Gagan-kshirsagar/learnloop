@@ -102,6 +102,16 @@ STOPWORDS = {
     "it",
     "from",
     "at",
+    "does",
+    "did",
+    "who",
+    "when",
+    "where",
+    "under",
+    "between",
+    "should",
+    "i",
+    "be",
 }
 
 
@@ -125,10 +135,13 @@ class MockEmbeddings:
 
         vec = [0.0] * dim
         for w in words:
-            for i in range(dim):
-                h = hashlib.sha256(f"{w}_{i}".encode()).hexdigest()
-                val = (int(h[:6], 16) / 0xFFFFFF) * 2.0 - 1.0
-                vec[i] += val
+            # Deterministic pseudo-orthogonal word embedding
+            idx1 = int(hashlib.sha256(f"{w}_a".encode()).hexdigest()[:8], 16) % dim
+            idx2 = int(hashlib.sha256(f"{w}_b".encode()).hexdigest()[:8], 16) % dim
+            idx3 = int(hashlib.sha256(f"{w}_c".encode()).hexdigest()[:8], 16) % dim
+            vec[idx1] += 1.0
+            vec[idx2] += 0.5
+            vec[idx3] -= 0.5
 
         norm = math.sqrt(sum(x * x for x in vec))
         if norm > 0:

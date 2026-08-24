@@ -72,5 +72,8 @@ jobs:
       - name: Run Pytest
         run: uv run pytest
 
+      - name: Run Tutor Evaluation Harness (Offline)
+        run: uv run python -m app.modules.tutor.evals.run --offline --threshold 0.85
+
       - name: Run Module Boundary Check
         run: uv run python tools/check_boundaries.py

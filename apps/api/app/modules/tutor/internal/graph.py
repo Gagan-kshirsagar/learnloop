@@ -57,18 +57,31 @@ class SocraticTutorAgent:
 
     def _is_reveal_intent(self, question: str, attempt_count: int) -> bool:
         q_lower = question.lower()
-        if "ignore" in q_lower or "bypass" in q_lower or "system prompt" in q_lower:
+        if (
+            "ignore" in q_lower
+            or "bypass" in q_lower
+            or "system prompt" in q_lower
+            or "override" in q_lower
+            or "admin" in q_lower
+            or "jailbreak" in q_lower
+            or "answer key" in q_lower
+            or "hidden test" in q_lower
+        ):
             return False
 
         reveal_keywords = [
-            "reveal",
-            "solution",
+            "reveal solution",
+            "reveal the worked",
+            "reveal the solution",
+            "reveal code",
             "give up",
             "give answer",
             "show answer",
             "show solution",
+            "show the full",
             "worked solution",
             "explain each step",
+            "reveal",
         ]
         explicit_request = any(kw in q_lower for kw in reveal_keywords)
         return explicit_request or attempt_count >= 3
@@ -79,10 +92,32 @@ class SocraticTutorAgent:
     ) -> AsyncIterator[str]:
         """Execute ReAct Socratic agent graph and stream step and token SSE events."""
         q_lower = state.question.lower()
+
+        is_code_related_question = any(
+            kw in q_lower
+            for kw in [
+                "failing",
+                "wrong",
+                "error",
+                "code",
+                "bug",
+                "stuck",
+                "test",
+                "pass",
+                "crash",
+                "syntax",
+                "exception",
+                "miss",
+                "missing",
+                "line",
+                "return",
+                "function",
+                "requirement",
+                "requirements",
+            ]
+        )
         needs_code_inspection = bool(
-            state.exercise_id
-            or state.submission_id
-            or any(kw in q_lower for kw in ["failing", "wrong", "error", "code", "bug", "stuck"])
+            state.submission_id or (state.exercise_id and is_code_related_question)
         )
 
         observed_context: list[str] = []
@@ -138,11 +173,22 @@ class SocraticTutorAgent:
 
         reveal_allowed = self._is_reveal_intent(state.question, state.attempt_count)
 
+        inj_pattern = (
+            r"(ignore (previous|all)? instructions|bypass|override|"
+            r"give me the (full )?code|administrator|admin|answer key|"
+            r"hidden test|test suite|jailbreak|unrestricted)"
+        )
+        is_injection_attempt = bool(re.search(inj_pattern, q_lower))
+
         chunks = await self.tools.retrieve_lesson(
             query=state.question,
             lesson_id=state.lesson_id,
         )
-        if not chunks and reveal_allowed and state.lesson_id:
+        if (
+            not chunks
+            and (needs_code_inspection or reveal_allowed or is_injection_attempt)
+            and state.lesson_id
+        ):
             chunks = await self.tools.retrieve_lesson(
                 query=state.question,
                 lesson_id=state.lesson_id,
@@ -163,28 +209,22 @@ class SocraticTutorAgent:
             chunk_texts = [f"[{i + 1}] {c['snippet']}" for i, c in enumerate(chunks)]
             observed_context.append("Lesson Curriculum Excerpts:\n" + "\n\n".join(chunk_texts))
         else:
+            summary = "No direct lesson match found"
             step_rag_empty = {
                 "type": "tool_result",
                 "tool": "retrieve_lesson",
-                "summary": "No direct lesson match found",
+                "summary": summary,
             }
             yield f"event: step\ndata: {json.dumps(step_rag_empty)}\n\n"
+            state.tool_steps.append({"tool": "retrieve_lesson", "summary": summary, "data": []})
 
         # ── Step 3: Check Grounding / Out-of-Scope ──
-        if not chunks and not needs_code_inspection:
+        if not chunks and not needs_code_inspection and not is_injection_attempt:
             state.is_out_of_scope = True
             refusal_text = "That isn't covered in this lesson."
             yield f"event: token\ndata: {json.dumps({'text': refusal_text})}\n\n"
             yield f"event: citations\ndata: {json.dumps({'citations': []})}\n\n"
             return
-
-        # ── Step 4: Socratic Hint Escalation & Prompt Assembly ──
-        is_injection_attempt = bool(
-            re.search(
-                r"(ignore (previous|all)? instructions|bypass|override|give me the (full )?code)",
-                q_lower,
-            )
-        )
 
         if reveal_allowed and not is_injection_attempt:
             escalation_mode = "REVEAL_ALLOWED"

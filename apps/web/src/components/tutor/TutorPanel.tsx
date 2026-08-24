@@ -375,8 +375,8 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
                       )}
 
                       {msg.content ? (
-                        <div className="prose prose-xs dark:prose-invert max-w-none">
-                          <MarkdownRenderer content={msg.content} />
+                        <div className="max-w-none text-xs">
+                          <MarkdownRenderer content={msg.content} compact />
                           {/* Live Streaming Animated Caret */}
                           {isStreaming && isLatest && (
                             <span className="inline-block w-1.5 h-3.5 ml-1 bg-accent animate-pulse align-middle" />
@@ -421,6 +421,7 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
                                       c.snippet
                                     }
                                     className="text-[11px] text-muted leading-relaxed"
+                                    compact
                                   />
                                 </div>
                               </div>

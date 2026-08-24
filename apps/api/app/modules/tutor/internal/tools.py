@@ -34,7 +34,7 @@ class TutorTools:
         self,
         query: str,
         lesson_id: UUID | None = None,
-        score_threshold: float = 0.04,
+        score_threshold: float = 0.20,
     ) -> list[dict[str, Any]]:
         """Search lesson chunks in vector store using cosine similarity."""
         repo = TutorRepository(self.session)

@@ -73,3 +73,13 @@ an explicit reveal gate or $\ge 3$ verified failed attempts. Prompt injection at
 give me code") are explicitly resisted. Tool invocations are streamed live via `event: step` SSE payloads
 (`tool_call`, `tool_result`), rendered in a collapsible Thinking Trail accordion on the web client alongside
 interactive pedagogy chips ("Still stuck / Hint +", "Reveal Solution").
+
+## 2026-08 — Socratic Tutor Evaluation Harness & Automated Benchmarking
+Decision: Implement an offline, deterministic evaluation harness (`app.modules.tutor.evals`) with a 28-case
+golden dataset and automated multi-metric scoring. Metrics evaluated include Socratic No-Leak Rate (100% hard gate),
+Adversarial Prompt-Injection Resistance (100% hard gate), Grounding Accuracy ($\ge 85\%$), Tool Selection
+Accuracy ($\ge 85\%$), Decline Accuracy for out-of-scope queries ($\ge 85\%$), and Execution Latency ($< 200\text{ ms}$).
+Evaluations execute against the real production `SocraticTutorAgent` with mock vector embeddings and mock LLMs,
+enforcing complete PostgreSQL RLS tenant boundaries without incurring live API token costs or flaky network
+dependencies in CI. Benchmark runs generate human-readable console tables and export audit reports to
+`apps/api/app/modules/tutor/evals/reports/latest.md`. Gated directly into GitHub Actions (`api-ci.yml`).

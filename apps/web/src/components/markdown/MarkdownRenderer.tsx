@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  compact?: boolean;
 }
 
 function parseInlineFormatting(text: string): ReactNode[] {
@@ -19,7 +20,7 @@ function parseInlineFormatting(text: string): ReactNode[] {
       parts.push(
         <code
           key={key++}
-          className="rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[0.85em] font-medium text-foreground"
+          className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[0.85em] font-medium text-foreground"
         >
           {codeMatch[1]}
         </code>
@@ -87,9 +88,9 @@ function parseInlineFormatting(text: string): ReactNode[] {
   return parts;
 }
 
-export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
+export function MarkdownRenderer({ content, className = "", compact = false }: MarkdownRendererProps) {
   if (!content) {
-    return <p className="text-sm text-muted">No content available.</p>;
+    return <p className="text-xs text-muted">No content available.</p>;
   }
 
   const lines = content.split("\n");
@@ -118,12 +119,18 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       elements.push(
         <div
           key={elementKey++}
-          className="my-4 overflow-hidden rounded-xl border border-subtle bg-surface-2/80 shadow-xs"
+          className={`overflow-hidden rounded-lg border border-subtle bg-surface-2/80 shadow-xs ${
+            compact ? "my-2" : "my-4"
+          }`}
         >
-          <div className="flex items-center justify-between border-b border-subtle bg-surface-2 px-4 py-1.5 text-xs text-muted font-mono">
+          <div className="flex items-center justify-between border-b border-subtle bg-surface-2 px-3 py-1 text-[11px] text-muted font-mono">
             <span>{lang}</span>
           </div>
-          <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-foreground">
+          <pre
+            className={`overflow-x-auto font-mono leading-relaxed text-foreground ${
+              compact ? "p-2.5 text-[11px]" : "p-4 text-xs"
+            }`}
+          >
             <code>{codeLines.join("\n")}</code>
           </pre>
         </div>
@@ -133,7 +140,7 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
     // Horizontal Rules (---, ***, ___)
     if (/^(\*{3,}|-{3,}|_{3,})$/.test(line.trim())) {
-      elements.push(<hr key={elementKey++} className="my-4 border-subtle" />);
+      elements.push(<hr key={elementKey++} className={compact ? "my-2 border-subtle" : "my-4 border-subtle"} />);
       i++;
       continue;
     }
@@ -147,7 +154,11 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
         elements.push(
           <h1
             key={elementKey++}
-            className="mt-6 mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+            className={
+              compact
+                ? "mt-2.5 mb-1 text-sm font-bold tracking-tight text-foreground"
+                : "mt-6 mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+            }
           >
             {parseInlineFormatting(text)}
           </h1>
@@ -156,7 +167,11 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
         elements.push(
           <h2
             key={elementKey++}
-            className="mt-5 mb-2.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl"
+            className={
+              compact
+                ? "mt-2 mb-1 text-xs font-bold tracking-tight text-foreground"
+                : "mt-5 mb-2.5 text-xl font-bold tracking-tight text-foreground sm:text-2xl"
+            }
           >
             {parseInlineFormatting(text)}
           </h2>
@@ -165,7 +180,11 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
         elements.push(
           <h3
             key={elementKey++}
-            className="mt-4 mb-2 text-lg font-semibold tracking-tight text-foreground"
+            className={
+              compact
+                ? "mt-1.5 mb-0.5 text-xs font-semibold tracking-tight text-foreground"
+                : "mt-4 mb-2 text-lg font-semibold tracking-tight text-foreground"
+            }
           >
             {parseInlineFormatting(text)}
           </h3>
@@ -185,7 +204,11 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
       elements.push(
         <blockquote
           key={elementKey++}
-          className="my-3 border-l-2 border-accent pl-4 text-sm italic text-muted"
+          className={
+            compact
+              ? "my-1.5 border-l-2 border-accent pl-2.5 text-xs italic text-muted"
+              : "my-3 border-l-2 border-accent pl-4 text-sm italic text-muted"
+          }
         >
           {quoteLines.map((ql, qIdx) => (
             <p key={qIdx}>{parseInlineFormatting(ql)}</p>
@@ -212,7 +235,12 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
       if (isOrdered) {
         elements.push(
-          <ol key={elementKey++} className="my-3 list-decimal space-y-1.5 pl-6 text-sm text-foreground">
+          <ol
+            key={elementKey++}
+            className={`list-decimal text-foreground ${
+              compact ? "my-1 space-y-0.5 pl-4 text-xs" : "my-3 space-y-1.5 pl-6 text-sm"
+            }`}
+          >
             {listItems.map((item, idx) => (
               <li key={idx}>{parseInlineFormatting(item)}</li>
             ))}
@@ -220,7 +248,12 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
         );
       } else {
         elements.push(
-          <ul key={elementKey++} className="my-3 list-disc space-y-1.5 pl-6 text-sm text-foreground">
+          <ul
+            key={elementKey++}
+            className={`list-disc text-foreground ${
+              compact ? "my-1 space-y-0.5 pl-4 text-xs" : "my-3 space-y-1.5 pl-6 text-sm"
+            }`}
+          >
             {listItems.map((item, idx) => (
               <li key={idx}>{parseInlineFormatting(item)}</li>
             ))}
@@ -255,7 +288,14 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
 
     if (paragraphLines.length > 0) {
       elements.push(
-        <p key={elementKey++} className="my-2.5 text-sm leading-relaxed text-foreground/90">
+        <p
+          key={elementKey++}
+          className={
+            compact
+              ? "my-1 text-xs leading-relaxed text-foreground/90"
+              : "my-2.5 text-sm leading-relaxed text-foreground/90"
+          }
+        >
           {parseInlineFormatting(paragraphLines.join(" "))}
         </p>
       );

@@ -16,14 +16,14 @@ class ModelRouter:
         api_key = getattr(self.settings, "google_api_key", None)
         if provider_name == "mock" or not api_key:
             return MockEmbeddings()
-        return GeminiEmbeddings()
+        return GeminiEmbeddings(api_key=api_key)
 
     def get_llm_provider(self) -> LLMProvider:
         provider_name = getattr(self.settings, "llm_provider", "gemini").lower()
         api_key = getattr(self.settings, "google_api_key", None)
         if provider_name == "mock" or not api_key:
             return MockLLM()
-        return GeminiLLM()
+        return GeminiLLM(api_key=api_key)
 
 
 _router_instance: ModelRouter | None = None

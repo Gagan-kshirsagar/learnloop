@@ -10,6 +10,7 @@ from app.modules.identity.internal.dependencies import (
     get_tenant_db_session,
     require_role,
 )
+from app.modules.identity.internal.models import Tenant, User, UserRole
 from app.modules.identity.internal.schemas import (
     AuthResponse,
     LoginRequest,
@@ -105,4 +106,7 @@ __all__ = [
     "AuthResponse",
     "TokenResponse",
     "MeResponse",
+    "Tenant",
+    "User",
+    "UserRole",
 ]

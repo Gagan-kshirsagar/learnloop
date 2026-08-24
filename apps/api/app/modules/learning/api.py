@@ -11,7 +11,7 @@ from app.modules.identity.api import (
     get_tenant_db_session,
     require_role,
 )
-from app.modules.learning.internal.models import Submission
+from app.modules.learning.internal.models import Exercise, Submission
 from app.modules.learning.internal.repository import (
     ExerciseRepository,
     ProgressRepository,
@@ -291,4 +291,6 @@ __all__ = [
     "get_latest_submission_for_tutor",
     "get_progress_for_tutor",
     "check_code_safely",
+    "Exercise",
+    "Submission",
 ]
