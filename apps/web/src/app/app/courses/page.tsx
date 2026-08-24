@@ -37,7 +37,7 @@ export default function CoursesPage() {
             placeholder="Search courses…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 pl-9 text-xs"
+            className="h-9 pl-9 text-xs rounded-xl bg-surface border-subtle focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
       </div>
@@ -46,12 +46,12 @@ export default function CoursesPage() {
       {isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-2xl border border-subtle bg-surface p-6 space-y-4">
-              <Skeleton className="h-6 w-3/4 rounded-md" />
-              <Skeleton className="h-12 w-full rounded-md" />
+            <div key={i} className="rounded-2xl border border-subtle bg-surface p-6 space-y-4 shadow-xs">
+              <Skeleton className="h-6 w-3/4 rounded-xl" />
+              <Skeleton className="h-12 w-full rounded-xl" />
               <div className="flex items-center gap-4 pt-2">
-                <Skeleton className="h-4 w-20 rounded-md" />
-                <Skeleton className="h-4 w-20 rounded-md" />
+                <Skeleton className="h-4 w-20 rounded-xl" />
+                <Skeleton className="h-4 w-20 rounded-xl" />
               </div>
             </div>
           ))}
@@ -66,7 +66,7 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="mt-4 rounded-lg bg-surface px-4 py-1.5 text-xs font-semibold text-foreground border border-subtle shadow-xs hover:bg-surface-2"
+            className="mt-4 rounded-xl bg-surface px-4 py-1.5 text-xs font-semibold text-foreground border border-subtle shadow-xs hover:bg-surface-2 active:scale-[0.98] transition-all"
           >
             Retry
           </button>
@@ -76,7 +76,7 @@ export default function CoursesPage() {
       {/* Empty state */}
       {!isLoading && !error && courses && courses.length === 0 && (
         <div className="rounded-2xl border border-dashed border-subtle bg-surface/50 p-12 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent border border-accent/20">
             <BookOpen className="h-6 w-6" />
           </div>
           <h3 className="text-base font-bold text-foreground">No published courses</h3>
@@ -95,9 +95,9 @@ export default function CoursesPage() {
             <Link
               key={course.id}
               href={`/app/courses/${course.id}`}
-              className="group block transition-transform active:scale-[0.99]"
+              className="group block transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
             >
-              <Card className="h-full border-subtle bg-surface transition-all hover:border-strong hover:shadow-md">
+              <Card className="h-full border-subtle bg-surface shadow-xs transition-all hover:border-strong hover:shadow-md">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base font-bold text-foreground group-hover:text-accent transition-colors line-clamp-1">
@@ -105,7 +105,7 @@ export default function CoursesPage() {
                     </CardTitle>
                     <ChevronRight className="h-4 w-4 text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all shrink-0 mt-0.5" />
                   </div>
-                  <CardDescription className="line-clamp-2 text-xs leading-relaxed">
+                  <CardDescription className="line-clamp-2 text-xs leading-relaxed text-muted">
                     {course.description || "No description provided."}
                   </CardDescription>
                 </CardHeader>

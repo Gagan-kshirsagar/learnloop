@@ -13,14 +13,14 @@ export function Navbar({ showNavLinks = true }: NavbarProps) {
   const isAuthPage = pathname === "/login" || pathname === "/register";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-subtle/70 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-subtle bg-background/80 backdrop-blur-md transition-colors">
       <nav
         aria-label="Main navigation"
         className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6"
       >
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-foreground shadow-xs transition-transform group-hover:scale-105">
             LL
           </div>
           <span className="text-sm font-semibold tracking-tight text-foreground">
@@ -61,7 +61,7 @@ export function Navbar({ showNavLinks = true }: NavbarProps) {
 
           <Link
             href="/register"
-            className="inline-flex h-8 items-center justify-center rounded-lg bg-accent px-3.5 text-xs font-semibold text-accent-foreground shadow-sm transition-all hover:bg-accent-hover active:scale-95"
+            className="inline-flex h-8 items-center justify-center rounded-xl bg-accent px-3.5 text-xs font-semibold text-accent-foreground shadow-xs transition-all hover:bg-accent-hover active:scale-[0.98]"
           >
             {isAuthPage ? "Sign Up" : "Get Started"}
           </Link>

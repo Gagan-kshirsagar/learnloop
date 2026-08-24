@@ -94,11 +94,11 @@ export default function LessonPage({ params }: LessonPageProps) {
 
         <div className="flex items-center gap-2">
           {/* View Tab Switcher */}
-          <div className="flex items-center rounded-lg border border-subtle bg-surface-2 p-0.5 text-xs">
+          <div className="flex items-center rounded-xl border border-subtle bg-surface-2 p-1 text-xs shadow-xs">
             <button
               type="button"
               onClick={() => setActiveTab("reading")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeTab === "reading"
                   ? "bg-surface text-foreground font-semibold shadow-xs"
                   : "text-muted hover:text-foreground"
@@ -111,7 +111,7 @@ export default function LessonPage({ params }: LessonPageProps) {
               <button
                 type="button"
                 onClick={() => setActiveTab("exercise")}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   activeTab === "exercise"
                     ? "bg-surface text-foreground font-semibold shadow-xs"
                     : "text-muted hover:text-foreground"
@@ -119,7 +119,7 @@ export default function LessonPage({ params }: LessonPageProps) {
               >
                 <Code2 className="h-3.5 w-3.5 text-accent" />
                 <span>Exercise</span>
-                <Badge variant="outline" className="text-[9px] px-1 py-0 border-accent/40 text-accent">
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-accent/40 text-accent font-mono rounded">
                   Python
                 </Badge>
               </button>
@@ -127,7 +127,7 @@ export default function LessonPage({ params }: LessonPageProps) {
             <button
               type="button"
               onClick={() => setActiveTab("tutor")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 activeTab === "tutor"
                   ? "bg-surface text-foreground font-semibold shadow-xs"
                   : "text-muted hover:text-foreground"
@@ -141,7 +141,7 @@ export default function LessonPage({ params }: LessonPageProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-2.5 text-xs text-muted hover:text-foreground"
+            className="h-8 px-2.5 text-xs text-muted hover:text-foreground rounded-xl"
             onClick={() => {
               if (navigator.clipboard) {
                 navigator.clipboard.writeText(window.location.href);
@@ -159,7 +159,7 @@ export default function LessonPage({ params }: LessonPageProps) {
         <div className="space-y-6">
           <div className="space-y-2 border-b border-subtle pb-4">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] font-mono">
+              <Badge variant="outline" className="text-[10px] font-mono rounded-md px-2 py-0.5 border-subtle bg-surface-2 text-muted font-medium">
                 Lesson #{lesson.position}
               </Badge>
             </div>
@@ -175,7 +175,7 @@ export default function LessonPage({ params }: LessonPageProps) {
           </Card>
 
           {/* Lesson Completion / Next CTA Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-subtle bg-surface-2 p-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-subtle bg-surface-2/60 p-4 shadow-xs">
             <div className="text-xs text-muted">
               {exercise
                 ? "This lesson includes an interactive coding exercise to test your understanding."
@@ -186,7 +186,7 @@ export default function LessonPage({ params }: LessonPageProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setActiveTab("tutor")}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs rounded-xl"
               >
                 <Sparkles className="h-3.5 w-3.5 text-accent" />
                 <span>Ask Question</span>
@@ -195,7 +195,7 @@ export default function LessonPage({ params }: LessonPageProps) {
                 <Button
                   size="sm"
                   onClick={() => setActiveTab("exercise")}
-                  className="bg-accent text-accent-foreground font-semibold gap-1.5 text-xs"
+                  className="bg-accent text-accent-foreground font-semibold gap-1.5 text-xs rounded-xl shadow-xs"
                 >
                   <Code2 className="h-3.5 w-3.5" />
                   <span>Start Coding Challenge</span>
@@ -206,7 +206,7 @@ export default function LessonPage({ params }: LessonPageProps) {
                   size="sm"
                   onClick={() => completeMutation.mutate(lesson.id)}
                   disabled={completeMutation.isPending}
-                  className="font-semibold gap-1.5 text-xs"
+                  className="font-semibold gap-1.5 text-xs rounded-xl shadow-xs"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                   <span>Mark as Completed</span>

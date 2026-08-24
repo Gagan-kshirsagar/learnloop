@@ -77,10 +77,23 @@
 
   --color-foreground: hsl(var(--foreground));
   --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted));
   --color-faint: hsl(var(--faint));
 
   --color-subtle: hsl(var(--border));
   --color-strong: hsl(var(--border-strong));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--border));
+
+  --color-primary: hsl(var(--accent));
+  --color-primary-foreground: hsl(var(--accent-foreground));
+  --color-secondary: hsl(var(--surface-2));
+  --color-secondary-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--surface));
+  --color-card-foreground: hsl(var(--foreground));
+  --color-popover: hsl(var(--surface));
+  --color-popover-foreground: hsl(var(--foreground));
 
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
@@ -94,6 +107,8 @@
   --color-warning-soft: hsl(var(--warning-soft));
   --color-danger: hsl(var(--danger));
   --color-danger-soft: hsl(var(--danger-soft));
+  --color-destructive: hsl(var(--danger));
+  --color-destructive-foreground: hsl(var(--accent-foreground));
 
   --color-ring: hsl(var(--ring));
 

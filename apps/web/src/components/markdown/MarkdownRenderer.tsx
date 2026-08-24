@@ -20,7 +20,7 @@ function parseInlineFormatting(text: string): ReactNode[] {
       parts.push(
         <code
           key={key++}
-          className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[0.85em] font-medium text-foreground"
+          className="rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[0.85em] font-medium text-foreground border border-subtle"
         >
           {codeMatch[1]}
         </code>
@@ -62,7 +62,7 @@ function parseInlineFormatting(text: string): ReactNode[] {
           href={linkMatch[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
+          className="font-medium text-accent underline underline-offset-2 hover:text-accent-hover transition-colors"
         >
           {linkMatch[1]}
         </a>
@@ -119,16 +119,16 @@ export function MarkdownRenderer({ content, className = "", compact = false }: M
       elements.push(
         <div
           key={elementKey++}
-          className={`overflow-hidden rounded-lg border border-subtle bg-surface-2/80 shadow-xs ${
+          className={`overflow-hidden rounded-xl border border-subtle bg-surface-2 shadow-xs ${
             compact ? "my-2" : "my-4"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-subtle bg-surface-2 px-3 py-1 text-[11px] text-muted font-mono">
+          <div className="flex items-center justify-between border-b border-subtle/80 bg-surface-2/90 px-3.5 py-1.5 text-[11px] text-muted font-mono font-medium">
             <span>{lang}</span>
           </div>
           <pre
             className={`overflow-x-auto font-mono leading-relaxed text-foreground ${
-              compact ? "p-2.5 text-[11px]" : "p-4 text-xs"
+              compact ? "p-3 text-[11px]" : "p-4 text-xs"
             }`}
           >
             <code>{codeLines.join("\n")}</code>

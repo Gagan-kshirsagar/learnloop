@@ -39,19 +39,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-background p-6 space-y-6">
-        <div className="flex items-center justify-between border-b pb-4">
-          <Skeleton className="h-8 w-40" />
+        <div className="flex items-center justify-between border-b border-subtle pb-4">
+          <Skeleton className="h-8 w-40 rounded-xl" />
           <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24 rounded-xl" />
             <Skeleton className="h-8 w-8 rounded-full" />
           </div>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
-          <Skeleton className="h-36 w-full rounded-xl" />
+          <Skeleton className="h-36 w-full rounded-2xl" />
+          <Skeleton className="h-36 w-full rounded-2xl" />
+          <Skeleton className="h-36 w-full rounded-2xl" />
         </div>
-        <Skeleton className="h-96 w-full rounded-xl" />
+        <Skeleton className="h-96 w-full rounded-2xl" />
       </div>
     );
   }
@@ -64,31 +64,33 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const canTeach = user?.role === "owner" || user?.role === "instructor";
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 border-b border-subtle/70 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-subtle bg-background/80 backdrop-blur-md transition-colors">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-4 sm:gap-6">
-            <Link href="/app" className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-foreground">
+            <Link href="/app" className="flex items-center gap-2.5 group">
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-foreground shadow-xs transition-transform group-hover:scale-105">
                 LL
               </div>
-              <span className="font-bold text-sm tracking-tight hidden sm:inline">LearnLoop</span>
+              <span className="font-bold text-sm tracking-tight hidden sm:inline text-foreground">
+                LearnLoop
+              </span>
             </Link>
 
             {/* Breadcrumb Tenant Badge */}
             <div className="flex items-center gap-2">
-              <span className="text-muted text-xs hidden sm:inline">/</span>
+              <span className="text-muted/60 text-xs hidden sm:inline">/</span>
               <span className="text-xs font-semibold text-foreground truncate max-w-[120px] sm:max-w-[180px]">
                 {tenant?.name || "Workspace"}
               </span>
               {isGuest ? (
-                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-[10px] gap-1 px-1.5 py-0">
+                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium text-[10px] gap-1 px-2 py-0.5 rounded-md">
                   <Sparkles className="h-2.5 w-2.5" />
                   Sandbox
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0">
+                <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-md border border-subtle">
                   {tenant?.plan || "Free"}
                 </Badge>
               )}
@@ -98,9 +100,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <nav className="flex items-center gap-1 text-xs font-medium">
               <Link
                 href="/app"
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all ${
                   pathname === "/app"
-                    ? "bg-surface-2 text-foreground font-semibold"
+                    ? "bg-surface-2 text-foreground font-semibold shadow-xs"
                     : "text-muted hover:text-foreground hover:bg-surface-2/60"
                 }`}
               >
@@ -109,9 +111,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               </Link>
               <Link
                 href="/app/courses"
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all ${
                   pathname.startsWith("/app/courses") || pathname.startsWith("/app/lessons")
-                    ? "bg-surface-2 text-foreground font-semibold"
+                    ? "bg-surface-2 text-foreground font-semibold shadow-xs"
                     : "text-muted hover:text-foreground hover:bg-surface-2/60"
                 }`}
               >
@@ -121,9 +123,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {canTeach && (
                 <Link
                   href="/app/teach"
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all ${
                     pathname.startsWith("/app/teach")
-                      ? "bg-surface-2 text-foreground font-semibold"
+                      ? "bg-surface-2 text-foreground font-semibold shadow-xs"
                       : "text-muted hover:text-foreground hover:bg-surface-2/60"
                   }`}
                 >
@@ -135,10 +137,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted bg-surface-2/60 px-2.5 py-1 rounded-md border border-subtle">
-              <UserIcon className="h-3 w-3" />
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted bg-surface-2/70 px-2.5 py-1 rounded-xl border border-subtle">
+              <UserIcon className="h-3 w-3 text-muted" />
               <span className="font-medium text-foreground">{user?.name}</span>
-              <span className="text-faint">({user?.role})</span>
+              <span className="text-faint text-[11px]">({user?.role})</span>
             </div>
 
             <ThemeToggle />
@@ -146,7 +148,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Button
               variant="ghost"
               size="sm"
-              className="text-muted hover:text-foreground h-8 px-2"
+              className="text-muted hover:text-foreground h-8 px-2.5 rounded-xl"
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
             >

@@ -302,11 +302,11 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
           {/* Welcome / Empty State */}
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-md mx-auto">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent shadow-xs">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent shadow-xs border border-accent/20">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-sm font-semibold text-foreground">
+                <h3 className="text-sm font-bold tracking-tight text-foreground">
                   Ask me anything about this lesson
                 </h3>
                 <p className="text-xs text-muted leading-relaxed">
@@ -318,9 +318,9 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
                 <button
                   type="button"
                   onClick={() => handleQuickQuestion("Why is my code failing? Please guide me.")}
-                  className="w-full text-left rounded-lg border border-subtle bg-surface-2/60 p-2.5 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 transition-colors flex items-center justify-between group"
+                  className="w-full text-left rounded-xl border border-subtle bg-surface-2/60 p-3 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 active:scale-[0.99] transition-all flex items-center justify-between group shadow-xs"
                 >
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-2">
                     <Code2 className="h-3.5 w-3.5 text-accent" />
                     &ldquo;Why is my code failing? Please guide me&rdquo;
                   </span>
@@ -329,9 +329,9 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
                 <button
                   type="button"
                   onClick={() => handleQuickQuestion("Can you explain the main concept in simple terms?")}
-                  className="w-full text-left rounded-lg border border-subtle bg-surface-2/60 p-2.5 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 transition-colors flex items-center justify-between group"
+                  className="w-full text-left rounded-xl border border-subtle bg-surface-2/60 p-3 text-xs text-foreground hover:border-accent/40 hover:bg-surface-2 active:scale-[0.99] transition-all flex items-center justify-between group shadow-xs"
                 >
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-2">
                     <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
                     &ldquo;Explain the main concept in simple terms&rdquo;
                   </span>
@@ -349,20 +349,20 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
             return (
               <div
                 key={msg.id || idx}
-                className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}
+                className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} animate-in fade-in duration-150`}
               >
                 {/* Tutor Avatar */}
                 {!isUser && (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15 text-accent shrink-0 mt-0.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-accent-soft text-accent border border-accent/20 shrink-0 mt-0.5 shadow-xs">
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
                 )}
 
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3.5 space-y-2 text-xs leading-relaxed ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 space-y-2 text-xs leading-relaxed ${
                     isUser
-                      ? "bg-accent text-accent-foreground font-medium rounded-tr-xs"
+                      ? "bg-accent text-accent-foreground font-medium rounded-tr-xs shadow-xs"
                       : "bg-surface-2 border border-subtle text-foreground rounded-tl-xs shadow-xs"
                   }`}
                 >

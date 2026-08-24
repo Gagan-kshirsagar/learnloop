@@ -114,7 +114,7 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
             size="sm"
             onClick={handleReset}
             disabled={isEvaluating}
-            className="h-7 text-xs text-muted hover:text-foreground gap-1"
+            className="h-7 text-xs text-muted hover:text-foreground gap-1 rounded-xl"
           >
             <RotateCcw className="h-3 w-3" />
             <span>Reset Starter</span>
@@ -122,13 +122,15 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
         </div>
 
         {/* Code Editor */}
-        <CodeEditor
-          value={code}
-          onChange={setCode}
-          language={exercise.language}
-          readOnly={isEvaluating}
-          height="380px"
-        />
+        <div className="rounded-2xl border border-subtle overflow-hidden bg-surface shadow-xs">
+          <CodeEditor
+            value={code}
+            onChange={setCode}
+            language={exercise.language}
+            readOnly={isEvaluating}
+            height="380px"
+          />
+        </div>
 
         {/* Action Controls */}
         <div className="flex items-center justify-between gap-3 border-t border-subtle/60 pt-3">
@@ -144,7 +146,7 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
           <Button
             onClick={handleSubmit}
             disabled={isEvaluating || !code.trim()}
-            className="font-semibold gap-2 shadow-xs shrink-0"
+            className="font-semibold gap-2 shadow-xs shrink-0 rounded-xl bg-accent hover:bg-accent-hover text-accent-foreground active:scale-[0.98] transition-all"
           >
             {isEvaluating ? (
               <>
@@ -162,29 +164,29 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
 
         {/* Execution Results Panel */}
         {submissionStatus && (
-          <Card className="border-subtle bg-surface shadow-xs overflow-hidden">
+          <Card className="border-subtle bg-surface shadow-xs overflow-hidden rounded-2xl animate-in fade-in duration-200">
             <div className="flex items-center justify-between border-b border-subtle/70 bg-surface-2/50 px-4 py-2.5">
               <div className="flex items-center gap-2">
                 {submissionStatus.status === "passed" && (
-                  <Badge className="bg-success-soft text-success border-success/30 gap-1 text-[11px] font-bold">
+                  <Badge className="bg-success-soft text-success border-success/30 gap-1 text-[11px] font-bold rounded-md px-2 py-0.5">
                     <CheckCircle2 className="h-3 w-3" />
                     Passed ({submissionStatus.tests_passed}/{submissionStatus.tests_total} tests)
                   </Badge>
                 )}
                 {submissionStatus.status === "failed" && (
-                  <Badge className="bg-danger-soft text-danger border-danger/30 gap-1 text-[11px] font-bold">
+                  <Badge className="bg-danger-soft text-danger border-danger/30 gap-1 text-[11px] font-bold rounded-md px-2 py-0.5">
                     <XCircle className="h-3 w-3" />
                     Failed ({submissionStatus.tests_passed}/{submissionStatus.tests_total} tests)
                   </Badge>
                 )}
                 {submissionStatus.status === "error" && (
-                  <Badge className="bg-danger-soft text-danger border-danger/30 gap-1 text-[11px] font-bold">
+                  <Badge className="bg-danger-soft text-danger border-danger/30 gap-1 text-[11px] font-bold rounded-md px-2 py-0.5">
                     <AlertCircle className="h-3 w-3" />
                     Execution Error
                   </Badge>
                 )}
                 {(submissionStatus.status === "queued" || submissionStatus.status === "running") && (
-                  <Badge variant="secondary" className="gap-1 text-[11px] font-bold">
+                  <Badge variant="secondary" className="gap-1 text-[11px] font-bold rounded-md px-2 py-0.5 border border-subtle">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Sandboxed Worker Running…
                   </Badge>
@@ -203,7 +205,7 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
               {submissionStatus.stdout && (
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted">Output:</span>
-                  <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 text-foreground leading-relaxed">
+                  <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 text-foreground leading-relaxed border border-subtle">
                     {submissionStatus.stdout}
                   </pre>
                 </div>
@@ -212,7 +214,7 @@ export function ExerciseWorkspace({ exercise, onCompleted }: ExerciseWorkspacePr
               {submissionStatus.stderr && (
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-bold text-danger">Details:</span>
-                  <pre className="overflow-x-auto rounded-lg bg-danger-soft/40 border border-danger/20 p-3 text-danger leading-relaxed">
+                  <pre className="overflow-x-auto rounded-xl bg-danger-soft/40 border border-danger/20 p-3 text-danger leading-relaxed">
                     {submissionStatus.stderr}
                   </pre>
                 </div>
