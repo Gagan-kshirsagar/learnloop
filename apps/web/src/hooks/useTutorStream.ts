@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
-import type { ChatMessage, ChatSessionDetail, Citation, ToolStep } from "@/lib/api/tutor";
+import type {
+  ChatMessage,
+  ChatSessionDetail,
+  Citation,
+  LimitInfo,
+  ToolStep,
+} from "@/lib/api/tutor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -26,6 +32,7 @@ export function useTutorStream({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitInfo, setLimitInfo] = useState<LimitInfo | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -38,10 +45,15 @@ export function useTutorStream({
     };
   }, []);
 
+  const clearLimit = useCallback(() => {
+    setLimitInfo(null);
+  }, []);
+
   const loadSession = useCallback((detail: ChatSessionDetail) => {
     setActiveSessionId(detail.session.id);
     setMessages(detail.messages);
     setError(null);
+    setLimitInfo(null);
   }, []);
 
   const startNewChat = useCallback(() => {
@@ -52,6 +64,7 @@ export function useTutorStream({
     setMessages([]);
     setIsStreaming(false);
     setError(null);
+    setLimitInfo(null);
   }, []);
 
   const stop = useCallback(() => {
@@ -114,6 +127,20 @@ export function useTutorStream({
         });
 
         if (!res.ok) {
+          if (res.status === 429) {
+            const errData = await res.json().catch(() => null);
+            const msg =
+              errData?.detail ||
+              "Rate limit reached. Please wait a moment before sending another message.";
+            setLimitInfo({
+              reason: "user_rate_limit",
+              message: msg,
+            });
+            setMessages((prev) =>
+              prev.map((m) => (m.id === asstMsgId ? { ...m, content: msg } : m))
+            );
+            return;
+          }
           throw new Error(`Stream request failed with HTTP ${res.status}`);
         }
 
@@ -152,7 +179,10 @@ export function useTutorStream({
             try {
               const parsed = JSON.parse(dataStr);
 
-              if (eventName === "step") {
+              if (eventName === "limit") {
+                const info: LimitInfo = parsed;
+                setLimitInfo(info);
+              } else if (eventName === "step") {
                 const step: ToolStep = parsed;
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -219,6 +249,8 @@ export function useTutorStream({
     isStreaming,
     activeSessionId,
     error,
+    limitInfo,
+    clearLimit,
     sendMessage,
     stop,
     loadSession,

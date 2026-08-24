@@ -50,10 +50,12 @@ class SocraticTutorAgent:
         tools: TutorTools,
         llm: LLMProvider,
         max_iterations: int = 4,
+        max_tokens: int = 1024,
     ) -> None:
         self.tools = tools
         self.llm = llm
         self.max_iterations = max_iterations
+        self.max_tokens = max_tokens
 
     def _is_reveal_intent(self, question: str, attempt_count: int) -> bool:
         q_lower = question.lower()
@@ -272,6 +274,7 @@ Answer:"""
             prompt=prompt,
             system_instruction=SOCRATIC_SYSTEM_PROMPT,
             temperature=0.2,
+            max_tokens=self.max_tokens,
         ):
             accumulated_answer.append(token)
             yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"

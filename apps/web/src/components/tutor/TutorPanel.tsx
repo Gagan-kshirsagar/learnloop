@@ -6,6 +6,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  Clock,
   Code2,
   HelpCircle,
   History,
@@ -14,6 +15,7 @@ import {
   MessageSquare,
   PlusCircle,
   Send,
+  ShieldAlert,
   Sparkles,
   Square,
   Terminal,
@@ -134,6 +136,8 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
     isStreaming,
     activeSessionId,
     error,
+    limitInfo,
+    clearLimit,
     sendMessage,
     stop,
     loadSession,
@@ -447,8 +451,56 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
         </div>
       </div>
 
+      {/* Limit State Banner */}
+      {limitInfo && (
+        <div
+          className={`mx-4 mb-2 p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200 ${
+            limitInfo.reason === "user_rate_limit"
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+              : limitInfo.reason === "provider_busy"
+              ? "border-accent/30 bg-accent-soft text-accent"
+              : "border-subtle bg-surface-2 text-foreground"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {limitInfo.reason === "user_rate_limit" ? (
+              <Clock className="h-4 w-4 shrink-0 text-amber-500" />
+            ) : limitInfo.reason === "provider_busy" ? (
+              <Sparkles className="h-4 w-4 shrink-0 text-accent" />
+            ) : (
+              <ShieldAlert className="h-4 w-4 shrink-0 text-brand" />
+            )}
+            <span className="leading-snug">{limitInfo.message}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {limitInfo.reason === "provider_busy" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearLimit();
+                  handleQuickQuestion(inputText || "Can you explain the main concept?");
+                }}
+                className="h-6 text-xs px-2 border-accent/40 hover:bg-accent/10"
+              >
+                Retry
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearLimit}
+              className="h-6 text-xs px-2 text-muted hover:text-foreground"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Error Banner */}
-      {error && (
+      {error && !limitInfo && (
         <div className="mx-4 mb-2 p-2.5 rounded-lg border border-danger/40 bg-danger-soft text-danger text-xs flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -511,6 +563,10 @@ export function TutorPanel({ lessonId, lessonTitle, exerciseId }: TutorPanelProp
             placeholder={
               isStreaming
                 ? "Tutor is responding..."
+                : limitInfo?.reason === "tenant_daily_budget" || limitInfo?.reason === "global_daily_budget"
+                ? "Daily demo limit reached — resumes tomorrow."
+                : limitInfo?.reason === "user_rate_limit"
+                ? "Message rate limit reached — please wait a moment."
                 : "Ask a question or request guidance (Enter to send)..."
             }
             disabled={isStreaming}

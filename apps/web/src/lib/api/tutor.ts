@@ -18,6 +18,12 @@ export interface AskQuestionResponse {
   used_context: boolean;
 }
 
+export interface LimitInfo {
+  reason: "user_rate_limit" | "tenant_daily_budget" | "global_daily_budget" | "provider_busy";
+  message: string;
+  retry_after?: number;
+}
+
 export interface ToolStep {
   type: "tool_call" | "tool_result";
   tool: string;

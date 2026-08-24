@@ -29,6 +29,19 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"
     embeddings_provider: str = "gemini"
     rag_score_threshold: float = 0.05
+    max_tutor_tool_iterations: int = 4
+    max_tutor_tokens: int = 1024
+    max_tutor_context_chunks: int = 4
+
+    # Rate limiting & demo cost budgets
+    rate_store_type: str = "memory"
+    redis_url: str = ""
+    user_rate_limit_turns: int = 15
+    user_rate_limit_window_seconds: int = 600
+    tenant_daily_budget_turns: int = 300
+    global_daily_budget_turns: int = 1000
+    general_rate_limit_requests: int = 120
+    general_rate_limit_window_seconds: int = 60
 
 
 @lru_cache

@@ -40,6 +40,7 @@ async def ask_tutor(
     return await service.ask_question(
         session,
         tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
         question=req.question,
         lesson_id=req.lesson_id,
     )

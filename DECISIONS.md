@@ -83,3 +83,15 @@ Evaluations execute against the real production `SocraticTutorAgent` with mock v
 enforcing complete PostgreSQL RLS tenant boundaries without incurring live API token costs or flaky network
 dependencies in CI. Benchmark runs generate human-readable console tables and export audit reports to
 `apps/api/app/modules/tutor/evals/reports/latest.md`. Gated directly into GitHub Actions (`api-ci.yml`).
+
+## 2026-08 — Cost & Abuse Hardening: RateStore Seam, Multi-Tier Budgets & 429 Recovery
+Decision: Protect the public demo from token exhaustion and abuse using a pluggable `RateStore`
+abstraction (`InMemoryRateStore` for offline CI and testing; `RedisRateStore` for production Upstash Redis)
+and a 3-tier budgeting architecture in `BudgetLimiter` (`apps/api/app/shared/rate_limiter.py`). Enforces
+per-user rate limits (15 msgs / 10m window), per-tenant daily agent turn budgets (300 turns / UTC day),
+and a global demo daily capacity limit (1000 turns / UTC day). Counting charges exactly one budget unit per
+agent turn (regardless of internal tool iterations). Quota exhaustion declines the request before invoking
+the LLM, preventing model costs and hallucinations. Upstream Gemini API rate limit errors (HTTP 429 /
+RESOURCE_EXHAUSTED) are caught and gracefully converted into friendly "tutor is busy" streaming events
+without crashing or surfacing 500 errors. On the web frontend (`TutorPanel`), limit states render clean,
+accessible inline notices with countdown hints and disabled input states matching Linear-grade design tokens.

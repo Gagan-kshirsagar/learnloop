@@ -11,7 +11,7 @@ from app.modules.catalog.api import CourseModule, Lesson
 from app.modules.tutor.internal.chunker import MarkdownChunker
 from app.modules.tutor.internal.embeddings import EmbeddingsProvider
 from app.modules.tutor.internal.graph import SocraticTutorAgent, TutorAgentState
-from app.modules.tutor.internal.llm import LLMProvider
+from app.modules.tutor.internal.llm import LLMProvider, ProviderRateLimitError
 from app.modules.tutor.internal.models import LessonChunk
 from app.modules.tutor.internal.repository import TutorRepository
 from app.modules.tutor.internal.router import get_model_router
@@ -27,6 +27,7 @@ from app.modules.tutor.internal.schemas import (
 )
 from app.modules.tutor.internal.tools import TutorTools
 from app.shared.config import get_settings
+from app.shared.rate_limiter import BudgetLimiter, get_budget_limiter
 
 
 class TutorService:
@@ -35,11 +36,14 @@ class TutorService:
         embeddings_provider: EmbeddingsProvider | None = None,
         llm_provider: LLMProvider | None = None,
         chunker: MarkdownChunker | None = None,
+        budget_limiter: BudgetLimiter | None = None,
     ) -> None:
         router = get_model_router()
         self.embeddings = embeddings_provider or router.get_embeddings_provider()
         self.llm = llm_provider or router.get_llm_provider()
         self.chunker = chunker or MarkdownChunker()
+        self.budget_limiter = budget_limiter or get_budget_limiter()
+        self.settings = get_settings()
 
     # ── Ingestion Pipeline ──
 
@@ -132,24 +136,37 @@ class TutorService:
     async def ask_question(
         self,
         session: AsyncSession,
-        tenant_id: UUID,  # noqa: ARG002
+        tenant_id: UUID,
         question: str,
+        user_id: UUID | None = None,
         lesson_id: UUID | None = None,
-        top_k: int = 5,
+        top_k: int | None = None,
         score_threshold: float | None = None,
     ) -> AskQuestionResponse:
+        effective_user_id = user_id or uuid.uuid4()
+        limit_check = await self.budget_limiter.check_tutor_turn(
+            user_id=effective_user_id,
+            tenant_id=tenant_id,
+        )
+        if not limit_check.allowed:
+            return AskQuestionResponse(
+                answer=limit_check.message,
+                citations=[],
+                used_context=False,
+            )
+
         repo = TutorRepository(session)
-        settings = get_settings()
         effective_threshold = (
             score_threshold
             if score_threshold is not None
-            else getattr(settings, "rag_score_threshold", 0.05)
+            else getattr(self.settings, "rag_score_threshold", 0.05)
         )
+        effective_top_k = top_k or self.settings.max_tutor_context_chunks
 
         query_vector = await self.embeddings.embed_query(question)
         scored_chunks = await repo.search_similar_chunks(
             embedding=query_vector,
-            top_k=top_k,
+            top_k=effective_top_k,
             lesson_id=lesson_id,
             score_threshold=effective_threshold,
         )
@@ -188,11 +205,27 @@ class TutorService:
             f"Lesson Context Chunks:\n{context_text}\n\nStudent Question: {question}\n\nAnswer:"
         )
 
-        answer = await self.llm.generate(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            temperature=0.2,
+        await self.budget_limiter.consume_tutor_turn(
+            user_id=effective_user_id,
+            tenant_id=tenant_id,
         )
+
+        try:
+            answer = await self.llm.generate(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                temperature=0.2,
+                max_tokens=self.settings.max_tutor_tokens,
+            )
+        except ProviderRateLimitError:
+            return AskQuestionResponse(
+                answer=(
+                    "The AI tutor is currently busy handling high demand. "
+                    "Please try again shortly."
+                ),
+                citations=[],
+                used_context=False,
+            )
 
         return AskQuestionResponse(
             answer=answer,
@@ -246,7 +279,45 @@ class TutorService:
         await repo.touch_session(active_session_id)
         await session.flush()
 
-        # 4. Instantiate Socratic Agent and execute graph
+        # 4. Check budget and rate limits BEFORE invoking tools or LLM
+        limit_check = await self.budget_limiter.check_tutor_turn(
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+        if not limit_check.allowed:
+            limit_event = json.dumps(
+                {
+                    "reason": limit_check.reason,
+                    "message": limit_check.message,
+                    "retry_after": limit_check.retry_after,
+                }
+            )
+            yield f"event: limit\ndata: {limit_event}\n\n"
+            yield f"event: token\ndata: {json.dumps({'text': limit_check.message})}\n\n"
+            yield f"event: citations\ndata: {json.dumps({'citations': []})}\n\n"
+
+            asst_msg = await repo.save_message(
+                tenant_id=tenant_id,
+                session_id=active_session_id,
+                role="assistant",
+                content=limit_check.message,
+                citations=[],
+            )
+            await session.flush()
+
+            done_event = json.dumps(
+                {
+                    "session_id": str(active_session_id),
+                    "message_id": str(asst_msg.id),
+                }
+            )
+            yield f"event: done\ndata: {done_event}\n\n"
+            return
+
+        # Consume 1 turn budget unit
+        await self.budget_limiter.consume_tutor_turn(user_id=user_id, tenant_id=tenant_id)
+
+        # 5. Instantiate Socratic Agent and execute graph
         tools = TutorTools(
             session=session,
             tenant_id=tenant_id,
@@ -274,14 +345,15 @@ class TutorService:
         agent = SocraticTutorAgent(
             tools=tools,
             llm=self.llm,
-            max_iterations=4,
+            max_iterations=self.settings.max_tutor_tool_iterations,
+            max_tokens=self.settings.max_tutor_tokens,
         )
 
         try:
             async for sse_chunk in agent.execute_stream(agent_state):
                 yield sse_chunk
 
-            # 5. Persist complete assistant response and citations
+            # Persist complete assistant response and citations
             final_text = (
                 agent_state.final_answer
                 if agent_state.final_answer
@@ -301,7 +373,39 @@ class TutorService:
             )
             await session.flush()
 
-            # 6. Emit done event
+            # Emit done event
+            done_event = json.dumps(
+                {
+                    "session_id": str(active_session_id),
+                    "message_id": str(asst_msg.id),
+                }
+            )
+            yield f"event: done\ndata: {done_event}\n\n"
+
+        except ProviderRateLimitError:
+            busy_text = (
+                "The AI tutor is currently busy handling high demand. Please try again shortly."
+            )
+            busy_event = json.dumps(
+                {
+                    "reason": "provider_busy",
+                    "message": busy_text,
+                    "retry_after": 15,
+                }
+            )
+            yield f"event: limit\ndata: {busy_event}\n\n"
+            yield f"event: token\ndata: {json.dumps({'text': busy_text})}\n\n"
+            yield f"event: citations\ndata: {json.dumps({'citations': []})}\n\n"
+
+            asst_msg = await repo.save_message(
+                tenant_id=tenant_id,
+                session_id=active_session_id,
+                role="assistant",
+                content=busy_text,
+                citations=[],
+            )
+            await session.flush()
+
             done_event = json.dumps(
                 {
                     "session_id": str(active_session_id),

@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -32,6 +32,7 @@ from app.modules.learning.internal.schemas import (
 )
 from app.modules.learning.internal.service import LearningService
 from app.shared.db import get_session_factory
+from app.shared.rate_limiter import get_budget_limiter
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -138,6 +139,22 @@ async def submit_code(
     service: LearningService = Depends(get_learning_service),
     session: AsyncSession = Depends(get_tenant_db_session),
 ) -> SubmissionQueuedResponse:
+    limiter = get_budget_limiter()
+    allowed, retry_after = await limiter.check_and_consume_general(
+        key=f"submit:{current_user.id}",
+        limit=30,
+        window_seconds=60,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Submission rate limit exceeded. "
+                f"Please wait {retry_after}s before submitting again."
+            ),
+            headers={"Retry-After": str(retry_after)},
+        )
+
     return await service.submit_code(
         session,
         tenant_id=current_user.tenant_id,

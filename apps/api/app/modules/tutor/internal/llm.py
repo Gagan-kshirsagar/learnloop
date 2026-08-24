@@ -5,12 +5,19 @@ from typing import Protocol
 import httpx
 
 
+class ProviderRateLimitError(Exception):
+    """Raised when an external LLM provider returns 429 / quota exceeded."""
+
+    pass
+
+
 class LLMProvider(Protocol):
     async def generate(
         self,
         prompt: str,
         system_instruction: str | None = None,
         temperature: float = 0.2,
+        max_tokens: int = 1024,
     ) -> str:
         """Generate full text completion."""
         ...
@@ -20,13 +27,14 @@ class LLMProvider(Protocol):
         prompt: str,
         system_instruction: str | None = None,
         temperature: float = 0.2,
+        max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         """Stream generated text tokens via async generator."""
         ...
 
 
 class GeminiLLM:
-    """Google Gemini API LLM Provider."""
+    """Google Gemini API LLM Provider with 429 rate limit protection."""
 
     def __init__(
         self,
@@ -48,13 +56,17 @@ class GeminiLLM:
         prompt: str,
         system_instruction: str | None = None,
         temperature: float = 0.2,
+        max_tokens: int = 1024,
     ) -> str:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
 
         payload: dict[str, object] = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature},
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
         }
         if system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
@@ -65,6 +77,8 @@ class GeminiLLM:
                 params={"key": self.api_key},
                 json=payload,
             )
+            if res.status_code == 429 or "RESOURCE_EXHAUSTED" in res.text:
+                raise ProviderRateLimitError("Gemini API rate limit exceeded")
             if res.status_code != 200:
                 raise RuntimeError(f"Gemini LLM error {res.status_code}: {res.text}")
             data = res.json()
@@ -79,13 +93,17 @@ class GeminiLLM:
         prompt: str,
         system_instruction: str | None = None,
         temperature: float = 0.2,
+        max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
 
         payload: dict[str, object] = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature},
+            "generationConfig": {
+                "temperature": temperature,
+                "maxOutputTokens": max_tokens,
+            },
         }
         if system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
@@ -99,10 +117,15 @@ class GeminiLLM:
                 json=payload,
             ) as response,
         ):
+            if response.status_code == 429:
+                raise ProviderRateLimitError("Gemini API stream rate limit exceeded")
             if response.status_code != 200:
                 err_body = await response.aread()
+                err_str = err_body.decode()
+                if "RESOURCE_EXHAUSTED" in err_str:
+                    raise ProviderRateLimitError("Gemini API quota exhausted")
                 raise RuntimeError(
-                    f"Gemini streaming error {response.status_code}: {err_body.decode()}"
+                    f"Gemini streaming error {response.status_code}: {err_str}"
                 )
 
             async for line in response.aiter_lines():
@@ -125,6 +148,10 @@ class GeminiLLM:
 
 class MockLLM:
     """Deterministic mock LLM that generates grounded answers quoting the prompt context."""
+
+    def __init__(self) -> None:
+        self.call_count: int = 0
+        self.simulate_429: bool = False
 
     def _generate_grounded_mock(self, prompt: str) -> str:
         prompt_lower = prompt.lower()
@@ -301,7 +328,11 @@ class MockLLM:
         prompt: str,
         system_instruction: str | None = None,  # noqa: ARG002
         temperature: float = 0.2,  # noqa: ARG002
+        max_tokens: int = 1024,  # noqa: ARG002
     ) -> str:
+        self.call_count += 1
+        if self.simulate_429:
+            raise ProviderRateLimitError("Mock LLM 429 rate limit exceeded")
         return self._generate_grounded_mock(prompt)
 
     async def generate_stream(
@@ -309,7 +340,11 @@ class MockLLM:
         prompt: str,
         system_instruction: str | None = None,  # noqa: ARG002
         temperature: float = 0.2,  # noqa: ARG002
+        max_tokens: int = 1024,  # noqa: ARG002
     ) -> AsyncIterator[str]:
+        self.call_count += 1
+        if self.simulate_429:
+            raise ProviderRateLimitError("Mock LLM 429 stream rate limit exceeded")
         full_text = self._generate_grounded_mock(prompt)
         words = full_text.split(" ")
         for i, word in enumerate(words):
